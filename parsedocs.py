@@ -1,0 +1,61 @@
+from docx import Document
+import re
+import itertools
+import parsepdf
+# https://python-docx.readthedocs.io/en/latest/
+
+
+def extract_docx(filepath):
+    document = Document(filepath)
+    paragraph_list = [i.text for i in document.paragraphs]
+    table_list = []
+
+    def text_from_table(table):
+        for row in table.rows:
+            for cell in row.cells:
+                table_list.append(cell.text)
+
+    for i in document.tables:
+        text_from_table(i)
+
+    return paragraph_list + table_list
+
+
+def extract_pdf(filepath):
+    return [parsepdf.pdf_to_text(filepath).replace('\n', ' ')]
+
+
+def start_extract(filepath):
+    file_type = filepath.split('.')[-1].lower()
+    if 'docx' in file_type:
+        full_text = extract_docx(filepath)
+    elif 'pdf' in file_type:
+        full_text = extract_pdf(filepath)
+
+    def check_lawnet_compatibility(case_citation):
+        lawnet_casetypes = ['SLR', 'SGCA', 'SGHC']
+        # extra_casetypes = ['SGDC', 'AC', ' UKSC', 'Ch', 'WLR', 'QB']
+        for casetype in lawnet_casetypes:
+            if casetype in case_citation:
+                return True
+            else:
+                pass
+        return False
+
+    citation_pattern = re.compile(
+        r'[[][1-2][\d]{3}[]][ ][\d]+[ ][SLR()]+[ ][\d]+|[[][1-2][\d]{3}[]][ ][A-Za-z()]+[ ][\d]+')
+
+    citation_list = [re.findall(citation_pattern, i) for i in full_text]
+    print([i for i in citation_list if len(i) != 0])
+    citation_list = list(
+        set(list(itertools.chain.from_iterable(citation_list))))
+
+    citation_list = [
+        i for i in citation_list if check_lawnet_compatibility(i) is True]
+    return citation_list
+
+
+"""
+regex explanation
+
+"""
