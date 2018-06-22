@@ -45,7 +45,7 @@ def start_extract(filepath):
         return False
 
     citation_pattern = re.compile(
-        r'[[][1-2][\d]{3}[]][ ][\d]+[ ][SLR()]+[ ][\d]+|[[][1-2][\d]{3}[]][ ][A-Za-z()]+[ ][\d]+')
+        r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+')
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
     print([i for i in citation_list if len(i) != 0])
