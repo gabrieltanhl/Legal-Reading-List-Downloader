@@ -51,11 +51,12 @@ class DownloaderApp(QtWidgets.QWidget):
         self.progress.setValue(3)
         self.progress.setStyle(QtWidgets.QStyleFactory.create('fusion'))
 
-        import_button = QtWidgets.QPushButton('Load Reading List', self)
-        import_button.clicked.connect(self.showDialog)
         self.import_button = QtWidgets.QPushButton('Load Reading List', self)
         self.import_button.clicked.connect(self.showDialog)
 
+        self.directory_button = QtWidgets.QPushButton(
+            'Select Download Directory', self)
+        self.directory_button.clicked.connect(self.select_download_directory)
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
         self.start_button.setDisabled(True)
@@ -77,10 +78,11 @@ class DownloaderApp(QtWidgets.QWidget):
 
         grid.addWidget(self.usernamebox, 0, 1)
         grid.addWidget(self.passwordbox, 1, 1)
-        grid.addWidget(import_button, 2, 1)
-        grid.addWidget(self.start_button, 3, 1)
-        grid.addWidget(self.messagebox, 0, 0, 4, 1)
-        grid.addWidget(self.progress, 4, 0, 1, 2)
+        grid.addWidget(self.import_button, 2, 1)
+        grid.addWidget(self.directory_button, 3, 1)
+        grid.addWidget(self.start_button, 4, 1)
+        grid.addWidget(self.messagebox, 0, 0, 5, 1)
+        grid.addWidget(self.progress, 5, 0, 1, 2)
 
         self.setLayout(grid)
 
