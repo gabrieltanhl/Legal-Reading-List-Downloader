@@ -12,14 +12,18 @@ import os
 
 
 class lawnetBrowser():
-    def __init__(self, username, password):
+    def __init__(self, username, password, download_dir=None):
         self.username = username
         self.password = password
-        self.setDownloadDirectory()
+        self.setDownloadDirectory(download_dir)
         self.browser = virtualbrowser.chrome()
 
-    def setDownloadDirectory(self):
-        self.homedir = os.path.expanduser("~")+'/CaseFiles/'
+    def setDownloadDirectory(self, download_dir):
+        if download_dir:
+            self.homedir = download_dir
+        else:
+            self.homedir = os.path.expanduser("~")+'/CaseFiles/'
+
         if not os.path.exists(self.homedir):
             os.makedirs(self.homedir)
         self.cookiepath = self.homedir + '.lawnetcookie.pkl'
@@ -71,7 +75,7 @@ class lawnetBrowser():
             self.save_cookies()
             pdf_cookies = self.load_cookie_payload()
             pdf_file = requests.get(pdf_url, headers={'cookie': pdf_cookies})
-            open(self.homedir+case_citation+'.pdf',
+            open(os.path.join(self.homedir, '{}.pdf'.format(case_citation)),
                  'wb').write(pdf_file.content)
             driver.get(
                 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
