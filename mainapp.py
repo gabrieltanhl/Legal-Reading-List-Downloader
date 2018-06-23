@@ -10,11 +10,17 @@ class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
 
-    def __init__(self, USERNAME, PASSWORD, CITATION_LIST, parent=None):
+    def __init__(self,
+                 USERNAME,
+                 PASSWORD,
+                 CITATION_LIST,
+                 DOWNLOAD_DIR=None,
+                 parent=None):
         QtCore.QThread.__init__(self)
         self.username = USERNAME
         self.password = PASSWORD
         self.citation_list = CITATION_LIST
+        self.download_dir = DOWNLOAD_DIR
 
     def run(self):
         if len(self.citation_list) > 0:
@@ -22,8 +28,9 @@ class ProgressBar(QtCore.QThread):
             progress_per_case = int(100 / number_of_cases)
             progress_counter = 0
 
-            downloader = lawnetsearch.lawnetBrowser(
-                self.username, self.password)
+            downloader = lawnetsearch.lawnetBrowser(self.username,
+                                                    self.password,
+                                                    self.download_dir)
             downloader.loginLawnet()
             for i in self.citation_list:
                 progress_counter += progress_per_case
@@ -40,6 +47,7 @@ class DownloaderApp(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.citation_list = []
+        self.download_directory = None
 
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText('Username e.g. johnlee.2014')
