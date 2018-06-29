@@ -9,9 +9,9 @@ HEADERS = {
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
 }
 
-UserName = r'smustu\junxuan.ng.2015'
-Password = r'eG3vfHrXnML}oC'
-LAWNET_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
+LAWNET_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
+LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
+SMU_LOGIN_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
 
 
 class RequestLawnetBrowser():
@@ -23,17 +23,15 @@ class RequestLawnetBrowser():
         self.cookies = None
 
     def set_download_directory(self):
-        self.homedir = os.path.expanduser("~")+'/CaseFiles/'
+        self.homedir = os.path.expanduser("~") + '/CaseFiles/'
         if not os.path.exists(self.homedir):
             os.makedirs(self.homedir)
         self.cookiepath = self.homedir + '.lawnetcookie.pkl'
 
     def login_lawnet(self):
-        self.driver.get(
-            "https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access"
-        )
+        self.driver.get(LAWNET_URL)
 
-        if self.driver.current_url != 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+        if self.driver.current_url != SMU_LOGIN_URL:
             self.driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
             username_field = self.driver.find_element_by_id("userNameInput")
             password_field = self.driver.find_element_by_id("passwordInput")
@@ -62,9 +60,7 @@ class RequestLawnetBrowser():
             for cookie in self.cookies:
                 s.cookies.set(**cookie)
             # access search page
-            response = s.get(
-                'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
-            )
+            response = s.get(LAWNET_URL)
             soup = BeautifulSoup(response.text, 'html.parser')
 
             try:
@@ -119,7 +115,7 @@ class RequestLawnetBrowser():
 
             doc_id = re.search(r"'(.*)'",
                                cases_onclick[case_index][0]).group(1)
-            case_url = LAWNET_URL + doc_id
+            case_url = LAWNET_CASE_URL + doc_id
 
             # get the page
             case_response = s.get(case_url)
@@ -130,20 +126,14 @@ class RequestLawnetBrowser():
                         pdf_url = link['href']
 
                 pdf_file = s.get(pdf_url)
-                with open(self.homedir+case_citation+'.pdf', 'wb') as case_file:
+                with open(self.homedir + case_citation + '.pdf',
+                          'wb') as case_file:
                     case_file.write(pdf_file.content)
 
                 return ('\nPDF downloaded for ' + case_citation + '.')
             else:
-                with open(self.homedir+case_citation+'.html', 'w') as html_file:
+                with open(self.homedir + case_citation + '.html',
+                          'w') as html_file:
                     html_file.write(case_response.text)
-                return ('\nPDF not available for ' + case_citation + '. HTML version downloaded.')
-
-            return search_soup, search_response
-
-
-def test():
-    b = RequestLawnetBrowser(r'smustu\junxuan.ng.2015', r'eG3vfHrXnML}oC')
-    b.login_lawnet()
-    s = b.download_case('[1994] 1 SLR(R) 513')
-    return s
+                return ('\nPDF not available for ' + case_citation +
+                        '. HTML version downloaded.')
