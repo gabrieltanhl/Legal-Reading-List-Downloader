@@ -7,13 +7,13 @@ import parsepdf
 
 def extract_docx(filepath):
     document = Document(filepath)
-    paragraph_list = [i.text for i in document.paragraphs]
+    paragraph_list = [strip_non_breaking_space(i.text) for i in document.paragraphs]
     table_list = []
 
     def text_from_table(table):
         for row in table.rows:
             for cell in row.cells:
-                table_list.append(cell.text)
+                table_list.append(strip_non_breaking_space(cell.text))
 
     for i in document.tables:
         text_from_table(i)
@@ -24,6 +24,8 @@ def extract_docx(filepath):
 def extract_pdf(filepath):
     return [parsepdf.pdf_to_text(filepath).replace('\n', ' ')]
 
+def strip_non_breaking_space(sentence):
+    return sentence.replace('\xa0', ' ')
 
 def start_extract(filepath):
     file_type = filepath.split('.')[-1].lower()
@@ -43,7 +45,7 @@ def start_extract(filepath):
         return False
 
     citation_pattern = re.compile(
-        r'[[][1-2][\d]{3}[]][ ][\d]+[ ][SLR()]+[ ][\d]+|[[][1-2][\d]{3}[]][ ][A-Za-z()]+[ ][\d]+')
+        r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+')
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
     print([i for i in citation_list if len(i) != 0])
