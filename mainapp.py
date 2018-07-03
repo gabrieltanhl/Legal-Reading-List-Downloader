@@ -10,20 +10,27 @@ class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
 
-    def __init__(self, USERNAME, PASSWORD, CITATION_LIST, parent=None):
+    def __init__(self,
+                 USERNAME,
+                 PASSWORD,
+                 CITATION_LIST,
+                 DOWNLOAD_DIR=None,
+                 parent=None):
         QtCore.QThread.__init__(self)
         self.username = USERNAME
         self.password = PASSWORD
         self.citation_list = CITATION_LIST
+        self.download_dir = DOWNLOAD_DIR
 
     def run(self):
         if len(self.citation_list) > 0:
             number_of_cases = len(self.citation_list)
-            progress_per_case = int(100/number_of_cases)
+            progress_per_case = int(100 / number_of_cases)
             progress_counter = 0
 
-            downloader = lawnetsearch.lawnetBrowser(
-                self.username, self.password)
+            downloader = lawnetsearch.lawnetBrowser(self.username,
+                                                    self.password,
+                                                    self.download_dir)
             downloader.loginLawnet()
             for i in self.citation_list:
                 progress_counter += progress_per_case
@@ -40,6 +47,7 @@ class DownloaderApp(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.citation_list = []
+        self.download_directory = None
 
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText('Username e.g. johnlee.2014')
@@ -51,8 +59,12 @@ class DownloaderApp(QtWidgets.QWidget):
         self.progress.setValue(3)
         self.progress.setStyle(QtWidgets.QStyleFactory.create('fusion'))
 
-        import_button = QtWidgets.QPushButton('Load Reading List', self)
-        import_button.clicked.connect(self.showDialog)
+        self.import_button = QtWidgets.QPushButton('Load Reading List', self)
+        self.import_button.clicked.connect(self.showDialog)
+
+        self.directory_button = QtWidgets.QPushButton(
+            'Select Download Directory', self)
+        self.directory_button.clicked.connect(self.select_download_directory)
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
         self.start_button.setDisabled(True)
@@ -63,7 +75,8 @@ class DownloaderApp(QtWidgets.QWidget):
         self.messagebox = QtWidgets.QTextEdit()
         self.messagebox.setReadOnly(True)  # make it non-editable
         self.messagebox.insertPlainText(
-            'This is a tool that helps you download Singapore cases from Lawnet.\n\nInstructions:\n(1)Enter your SMU login credentials.\n\n(2)Load a reading list (only in .docx or .pdf formats).\n\n(3)Click the download button.')
+            'This is a tool that helps you download Singapore cases from Lawnet.\n\nInstructions:\n(1)Enter your SMU login credentials.\n\n(2)Load a reading list (only in .docx or .pdf formats).\n\n(3)Click the download button.'
+        )
 
         grid = QtWidgets.QGridLayout()
         grid.setContentsMargins(15, 5, 15, 5)  # left, top, right, bottom
@@ -73,10 +86,11 @@ class DownloaderApp(QtWidgets.QWidget):
 
         grid.addWidget(self.usernamebox, 0, 1)
         grid.addWidget(self.passwordbox, 1, 1)
-        grid.addWidget(import_button, 2, 1)
-        grid.addWidget(self.start_button, 3, 1)
-        grid.addWidget(self.messagebox, 0, 0, 4, 1)
-        grid.addWidget(self.progress, 4, 0, 1, 2)
+        grid.addWidget(self.import_button, 2, 1)
+        grid.addWidget(self.directory_button, 3, 1)
+        grid.addWidget(self.start_button, 4, 1)
+        grid.addWidget(self.messagebox, 0, 0, 5, 1)
+        grid.addWidget(self.progress, 5, 0, 1, 2)
 
         self.setLayout(grid)
 
@@ -84,29 +98,44 @@ class DownloaderApp(QtWidgets.QWidget):
         self.setWindowTitle('Reading List Downloader (SMU version)')
         self.show()
         self.progress.close()
+
     """
     Connectors
     """
+
     @Slot()
     def disableButton(self):
-        if len(self.usernamebox.text()) > 0 and len(self.passwordbox.text()) > 0:
+        if len(self.usernamebox.text()) > 0 and len(
+                self.passwordbox.text()) > 0:
             self.start_button.setDisabled(False)
         else:
             self.start_button.setDisabled(True)
 
     @Slot()
     def showDialog(self):
-        fname = QtWidgets.QFileDialog.getOpenFileName(
-            self, 'Open file', '/home')
+        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
+                                                      '/home')
         if fname[0]:
             self.citation_list = parsedocs.start_extract(fname[0])
-            self.messagebox.insertPlainText('\n\n'+str(len(
-                self.citation_list)) + ' cases which can be found on LawNet:\n' + '\n'.join(self.citation_list))
+            self.messagebox.insertPlainText(
+                '\n\n' + str(len(self.citation_list)) +
+                ' cases which can be found on LawNet:\n' +
+                '\n'.join(self.citation_list))
+
+    @Slot()
+    def select_download_directory(self):
+        dialogue = QtWidgets.QFileDialog.getExistingDirectory(
+            self, 'Select the download directory')
+
+        if dialogue:
+            self.download_directory = dialogue
 
     def start_download(self):
         if len(self.citation_list) > 0:
             self.calc = ProgressBar(self.usernamebox.text(),
-                                    self.passwordbox.text(), self.citation_list)
+                                    self.passwordbox.text(),
+                                    self.citation_list,
+                                    self.download_directory)
 
             self.calc.start()
             # connecting signal emitters to UI

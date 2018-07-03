@@ -7,8 +7,8 @@ import parsepdf
 
 def extract_docx(filepath):
     document = Document(filepath)
-    paragraph_list = [strip_non_breaking_space(
-        i.text) for i in document.paragraphs]
+    paragraph_list = [strip_non_breaking_space(i.text) for i in document.paragraphs]
+
     table_list = []
 
     def text_from_table(table):
@@ -25,6 +25,8 @@ def extract_docx(filepath):
 def extract_pdf(filepath):
     return [parsepdf.pdf_to_text(filepath).replace('\n', ' ')]
 
+def strip_non_breaking_space(sentence):
+    return sentence.replace('\xa0', ' ')
 
 def strip_non_breaking_space(sentence):
     return sentence.replace('\xa0', ' ')
