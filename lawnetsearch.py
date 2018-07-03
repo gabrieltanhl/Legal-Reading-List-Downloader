@@ -55,7 +55,8 @@ class lawnetBrowser():
         case_url = [(i['href'], i.get_text()) for i in case_info]
 
         # check if the search results contain what we want
-        case_titles = [(i[1]).split('-')[-1].strip() for i in case_url]
+        case_titles = ['[' + (i[1]).split('- [')[-1].strip() for i in case_url]
+        case_titles = [i.replace('Ch.', 'Ch') for i in case_titles]
         # getting html of the specific case
         try:
             driver.get(case_url[case_titles.index(case_citation)][0])
@@ -67,23 +68,31 @@ class lawnetBrowser():
 
         case_source = driver.page_source
         bsObj = BeautifulSoup(case_source, 'lxml')
+
+        # check if the case has a PDF link
         for i in bsObj.find_all('a'):
             if 'PDF' in i.text and i['href'] != '#':
                 pdf_url = i['href']
+                break
+            else:
+                pdf_url = False
 
-        if 'SLR' in case_citation:
+        # if there is a PDF link, send GET request to download
+        if pdf_url is not False:
             self.save_cookies()
             pdf_cookies = self.load_cookie_payload()
             pdf_file = requests.get(pdf_url, headers={'cookie': pdf_cookies})
-            open(os.path.join(self.homedir, '{}.pdf'.format(case_citation)),
-                 'wb').write(pdf_file.content)
+
+            with open(self.homedir + case_citation + '.pdf', 'wb') as f:
+                f.write(pdf_file.content)
+
             driver.get(
                 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
             return ('\nPDF downloaded for ' + case_citation + '.')
-        else:
-            Html_file = open(self.homedir+str(case_citation)+".html", "w")
-            Html_file.write(case_source)
-            Html_file.close()
+        else:  # if not, download the HTML page source
+            with open(self.homedir + case_citation + '.html', 'w', encoding='utf-8') as f:
+                f.write(case_source)
+
             driver.get(
                 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
             return ('\nPDF not available for ' + case_citation + '. Downloaded the HTML version instead.')
@@ -96,6 +105,9 @@ class lawnetBrowser():
             'save_cookies failed'
 
     def load_cookie_payload(self):
+        """
+        loads saved cookies so that it can be used to make a GET request to download the case PDF
+        """
         saved_cookies = pickle.load(open(self.cookiepath, "rb"))
         cookie_string = ''
         for i in saved_cookies:
@@ -106,4 +118,7 @@ class lawnetBrowser():
 
     def quit(self):
         self.browser.quit()
-        os.remove(self.cookiepath)
+        try:
+            os.remove(self.cookiepath)
+        except:
+            print('failed to remove cookies after browser quits')
