@@ -34,11 +34,12 @@ class ProgressBar(QtCore.QThread):
             downloader.loginLawnet()
             for i in self.citation_list:
                 progress_counter += progress_per_case
-                self.progress_update.emit(progress_counter)
                 signal = downloader.downloadCase(i)
                 self.download_status.emit(signal)
+                self.progress_update.emit(progress_counter)
             downloader.quit()
-            self.progress_update.emit(100)
+            if progress_counter < 100:
+                self.progress_update.emit(100)
             file_to_show = downloader.homedir
             subprocess.call(["open", "-R", file_to_show])
 
@@ -128,7 +129,7 @@ class DownloaderApp(QtWidgets.QWidget):
             self, 'Select the download directory')
 
         if dialogue:
-            self.download_directory = dialogue
+            self.download_directory = dialogue + '/'
 
     def start_download(self):
         if len(self.citation_list) > 0:
