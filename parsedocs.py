@@ -7,7 +7,8 @@ import parsepdf
 
 def extract_docx(filepath):
     document = Document(filepath)
-    paragraph_list = [strip_non_breaking_space(i.text) for i in document.paragraphs]
+    paragraph_list = [strip_non_breaking_space(
+        i.text) for i in document.paragraphs]
     table_list = []
 
     def text_from_table(table):
@@ -24,8 +25,10 @@ def extract_docx(filepath):
 def extract_pdf(filepath):
     return [parsepdf.pdf_to_text(filepath).replace('\n', ' ')]
 
+
 def strip_non_breaking_space(sentence):
     return sentence.replace('\xa0', ' ')
+
 
 def start_extract(filepath):
     file_type = filepath.split('.')[-1].lower()
@@ -35,7 +38,7 @@ def start_extract(filepath):
         full_text = extract_pdf(filepath)
 
     def check_lawnet_compatibility(case_citation):
-        lawnet_casetypes = ['SLR', 'SGCA', 'SGHC']
+        lawnet_casetypes = ['SLR', 'SGCA', 'SGHC', 'WLR', 'MLJ', 'Ch']
         # extra_casetypes = ['SGDC', 'AC', ' UKSC', 'Ch', 'WLR', 'QB']
         for casetype in lawnet_casetypes:
             if casetype in case_citation:
@@ -45,19 +48,12 @@ def start_extract(filepath):
         return False
 
     citation_pattern = re.compile(
-        r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+')
+        r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()WLRMLJCh]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+')
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
-    print([i for i in citation_list if len(i) != 0])
     citation_list = list(
         set(list(itertools.chain.from_iterable(citation_list))))
 
     citation_list = [
         i for i in citation_list if check_lawnet_compatibility(i) is True]
     return citation_list
-
-
-"""
-regex explanation
-
-"""
