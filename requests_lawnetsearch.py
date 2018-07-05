@@ -15,18 +15,21 @@ SMU_LOGIN_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/l
 
 
 class RequestLawnetBrowser():
-    def __init__(self, username, password):
+    def __init__(self, username, password, download_dir=None):
         self.username = username
         self.password = password
-        self.set_download_directory()
         self.driver = virtualbrowser.chrome()
+        self.set_download_directory(download_dir)
         self.cookies = None
 
-    def set_download_directory(self):
-        self.homedir = os.path.expanduser("~") + '/CaseFiles/'
+    def set_download_directory(self, download_dir):
+        if download_dir:
+            self.homedir = download_dir
+        else:
+            self.homedir = os.path.expanduser("~")+'/CaseFiles/'
+
         if not os.path.exists(self.homedir):
             os.makedirs(self.homedir)
-        self.cookiepath = self.homedir + '.lawnetcookie.pkl'
 
     def login_lawnet(self):
         self.driver.get(LAWNET_URL)
