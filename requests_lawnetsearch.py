@@ -123,11 +123,15 @@ class RequestLawnetBrowser():
             # get the page
             case_response = s.get(case_url)
             case_soup = BeautifulSoup(case_response.text, 'lxml')
-            if 'SLR' in case_citation:
-                for link in case_soup.find_all('a'):
-                    if 'PDF' in link.text and link['href'] != '#':
-                        pdf_url = link['href']
 
+            for link in case_soup.find_all('a'):
+                if 'PDF' in link.text and link['href'] != '#':
+                    pdf_url = link['href']
+                    break
+                else:
+                    pdf_url = False
+
+            if pdf_url:
                 pdf_file = s.get(pdf_url)
                 with open(self.homedir + case_citation + '.pdf',
                           'wb') as case_file:
