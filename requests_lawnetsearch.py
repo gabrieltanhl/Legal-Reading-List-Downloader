@@ -104,7 +104,7 @@ class RequestLawnetBrowser():
             # without javascript, there is a function call with a
             # "resource id" captured within the "onclick" action
             # of the link
-            cases_onclick = [(case['onclick'], case.get_text())
+            cases_onclick = [(case['onclick'], case.get_text().replace('Ch.', 'Ch'))
                              for case in cases_found]
 
             case_index = None
