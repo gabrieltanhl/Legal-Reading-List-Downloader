@@ -38,7 +38,7 @@ class ProgressBar(QtCore.QThread):
                 signal = downloader.download_case(i)
                 self.download_status.emit(signal)
                 self.progress_update.emit(progress_counter)
-            downloader.quit()
+
             if progress_counter < 100:
                 self.progress_update.emit(100)
             file_to_show = downloader.homedir
