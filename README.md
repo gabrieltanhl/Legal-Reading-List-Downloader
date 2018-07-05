@@ -1,7 +1,7 @@
 # Legal-Reading-List-Downloader (Beta)
 Automatically download cases in your reading lists from LawNet using a desktop app.
 
-For now it only supports SLR, SLR(R), SGCA and SGHC cases. To enable more case types, edit ```parsedocs.py```.
+For now it only supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. To enable more case types, edit ```parsedocs.py```.
 
 **DOCUMENTATION STILL IN PROGRESS**
 
@@ -9,6 +9,7 @@ For now it only supports SLR, SLR(R), SGCA and SGHC cases. To enable more case t
 1. Download the latest chromedriver from http://chromedriver.chromium.org/downloads and place it in the project directory
 2. Make sure the dependencies in requirements.txt are installed and you have Python 3.6 or higher. Make sure you install the
 dependencies in a virtual environment e.g. using ```virtualenv```.
+3. Install PySide2 (see https://doc.qt.io/qtforpython/gettingstarted.html)
 
 ## Running the app without compiling
 1. Run ```python mainapp.py``` or ```python3 mainapp.py``` in your terminal
