@@ -4,7 +4,8 @@ from PySide2.QtCore import Slot
 import parsedocs
 import subprocess
 import lawnetsearch
-
+import requests_lawnetsearch
+import time
 
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
@@ -28,13 +29,13 @@ class ProgressBar(QtCore.QThread):
             progress_per_case = int(100 / number_of_cases)
             progress_counter = 0
 
-            downloader = lawnetsearch.lawnetBrowser(self.username,
+            downloader = requests_lawnetsearch.RequestLawnetBrowser(self.username,
                                                     self.password,
                                                     self.download_dir)
-            downloader.loginLawnet()
+            downloader.login_lawnet()
             for i in self.citation_list:
                 progress_counter += progress_per_case
-                signal = downloader.downloadCase(i)
+                signal = downloader.download_case(i)
                 self.download_status.emit(signal)
                 self.progress_update.emit(progress_counter)
             downloader.quit()
