@@ -139,8 +139,7 @@ class RequestLawnetBrowser():
 
                 return ('\nPDF downloaded for ' + case_citation + '.')
             else:
-                with open(self.homedir + case_citation + '.html',
-                          'w') as html_file:
+                with open(self.homedir + case_citation + '.html', 'w', encoding='utf-8') as html_file:
                     html_file.write(case_response.text)
                 return ('\nPDF not available for ' + case_citation +
                         '. HTML version downloaded.')
