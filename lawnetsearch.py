@@ -1,124 +1,84 @@
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.ui import Select
-import time
-from bs4 import BeautifulSoup
 import virtualbrowser
-import requests
-import pickle
+import re
 import os
+from bs4 import BeautifulSoup
+import pickle
 
 
-class lawnetBrowser():
+class LawnetBrowser():
+    SMU_LAWNET_PROXY_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
+    LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
+    HEADERS = {
+        'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
+    }
+
     def __init__(self, username, password, download_dir=None):
         self.username = username
         self.password = password
-        self.setDownloadDirectory(download_dir)
-        self.browser = virtualbrowser.chrome()
+        self.driver = None
+        self.cookies = None
+        self.cookiepath = None
+        self.download_dir = None
+        self.set_download_directory(download_dir)
 
-    def setDownloadDirectory(self, download_dir):
+    def set_download_directory(self, download_dir):
         if download_dir:
-            self.homedir = download_dir
+            self.download_dir = download_dir
         else:
-            self.homedir = os.path.expanduser("~")+'/CaseFiles/'
+            self.download_dir = os.path.join(
+                os.path.expanduser('~'), 'CaseFiles')
 
-        if not os.path.exists(self.homedir):
-            os.makedirs(self.homedir)
-        self.cookiepath = self.homedir + '.lawnetcookie.pkl'
+        if not os.path.exists(self.download_dir):
+            os.makedirs(self.download_dir)
+        self.cookiepath = os.path.join(self.download_dir, '.lawnetcookie.pkl')
 
-    def loginLawnet(self):
-        driver = self.browser
-        driver.get(
-            "https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access")
+    def login_lawnet(self):
+        self.driver.get(self.SMU_LAWNET_PROXY_URL)
 
-        if driver.current_url != 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
-            driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
-            username = driver.find_element_by_id("userNameInput")
-            password = driver.find_element_by_id("passwordInput")
-            username.send_keys('smustu\\' + self.username)
-            password.send_keys(self.password)
-            driver.find_element_by_xpath("//*[@id=\"submitButton\"]").click()
+        # if we do not end up at the lawnet searchpage
+        if self.driver.current_url != self.LAWNET_SEARCH_URL:
+            self.driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
+            username_field = self.driver.find_element_by_id("userNameInput")
+            password_field = self.driver.find_element_by_id("passwordInput")
+            username_field.send_keys('smustu\\' + self.username)
+            password_field.send_keys(self.password)
+            self.driver.find_element_by_xpath(
+                "//*[@id=\"submitButton\"]").click()
 
-    def downloadCase(self, case_citation):
-        driver = self.browser
-        time.sleep(0.5)
-        searchbox = driver.find_element_by_id("basicSearchKey")
-        searchbox.send_keys(case_citation)
-        searchbox.send_keys(Keys.RETURN)
+            try:
+                login_message = self.driver.find_element_by_id(
+                    "errorText").text
+                if 'Incorrect user ID or password' in login_message:
+                    return 'FAIL'
+            except:
+                return 'SUCCESS'
 
-        # getting html of search results page
-        page_source = driver.page_source
-        bsObj = BeautifulSoup(page_source, 'lxml')
-        case_info = bsObj.select(".document-title")
-        case_url = [(i['href'], i.get_text()) for i in case_info]
+    def get_case_list_html(self, results_html):
+        search_soup = BeautifulSoup(results_html, 'lxml')
+        case_list = search_soup.select('.document-title')
 
-        # check if the search results contain what we want
-        case_titles = ['[' + (i[1]).split('- [')[-1].strip() for i in case_url]
-        case_titles = [i.replace('Ch.', 'Ch') for i in case_titles]
-        # getting html of the specific case
-        try:
-            driver.get(case_url[case_titles.index(case_citation)][0])
-        except:
-            # if cannot find, go back to search page and proceed to the next search term
-            driver.get(
-                'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
-            return ('\nUnable to find ' + case_citation + '.')
+        return case_list
 
-        case_source = driver.page_source
-        bsObj = BeautifulSoup(case_source, 'lxml')
-
-        # check if the case has a PDF link
-        for i in bsObj.find_all('a'):
-            if 'PDF' in i.text and i['href'] != '#':
-                pdf_url = i['href']
+    def get_case_index(self, case_list, citation):
+        case_index = None
+        for index, case in enumerate(case_list):
+            if citation.replace('Ch ', 'Ch. ').lower() in case[1].lower():
+                case_index = index
                 break
-            else:
-                pdf_url = False
 
-        # if there is a PDF link, send GET request to download
-        if pdf_url is not False:
-            self.save_cookies()
-            pdf_cookies = self.load_cookie_payload()
-            pdf_file = requests.get(pdf_url, headers={'cookie': pdf_cookies})
+        return case_index
 
-            with open(self.homedir + case_citation + '.pdf', 'wb') as f:
-                f.write(pdf_file.content)
+    def save_pdf(self, case_citation, case_data):
+        case_path = os.path.join(self.download_dir, case_citation + '.pdf')
+        with open(case_path, 'wb') as case_file:
+            case_file.write(case_data)
 
-            driver.get(
-                'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
-            return ('\nPDF downloaded for ' + case_citation + '.')
-        else:  # if not, download the HTML page source
-            with open(self.homedir + case_citation + '.html', 'w', encoding='utf-8') as f:
-                f.write(case_source)
+        return f'\nPDF downloaded for {case_citation}.'
 
-            driver.get(
-                'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search')
-            return ('\nPDF not available for ' + case_citation + '. Downloaded the HTML version instead.')
+    def save_html(self, case_citation, case_data):
+        case_path = os.path.join(self.download_dir, case_citation + '.html')
+        with open(case_path, 'w', encoding='utf-8') as case_file:
+            case_file.write(case_data)
 
-    def save_cookies(self):
-        try:
-            pickle.dump(self.browser.get_cookies(),
-                        open(self.cookiepath, "wb"))
-        except:
-            'save_cookies failed'
-
-    def load_cookie_payload(self):
-        """
-        loads saved cookies so that it can be used to make a GET request to download the case PDF
-        """
-        saved_cookies = pickle.load(open(self.cookiepath, "rb"))
-        cookie_string = ''
-        for i in saved_cookies:
-            cookie_name = i['name']
-            cookie_value = i['value']
-            cookie_string += (cookie_name + '='+cookie_value + '; ')
-        return cookie_string
-
-    def quit(self):
-        self.browser.quit()
-        try:
-            os.remove(self.cookiepath)
-        except:
-            print('failed to remove cookies after browser quits')
+        return (f'\nPDF not available for {case_citation}. HTML version downloaded.')
