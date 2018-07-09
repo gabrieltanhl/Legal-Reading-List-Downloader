@@ -3,7 +3,10 @@ from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Slot
 import parsedocs
 import subprocess
-import lawnetsearch
+import chrome_lawnetsearch
+import requests_lawnetsearch
+import threading
+from queue import Queue
 
 
 class ProgressBar(QtCore.QThread):
@@ -21,27 +24,71 @@ class ProgressBar(QtCore.QThread):
         self.password = PASSWORD
         self.citation_list = CITATION_LIST
         self.download_dir = DOWNLOAD_DIR
+        self.backend = 'REQUESTS'
+        self.progress_per_case = int(100 / len(self.citation_list))
+        self.progress_counter = 0
+
+    def finish_job(self, downloader):
+        if self.progress_counter < 100:
+            self.progress_update.emit(100)
+        file_to_show = downloader.download_dir
+        subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
         if len(self.citation_list) > 0:
-            number_of_cases = len(self.citation_list)
-            progress_per_case = int(100 / number_of_cases)
-            progress_counter = 0
+            if self.backend == 'CHROME':
+                downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
+                                                                     self.password,
+                                                                     self.download_dir)
+                login_status = downloader.login_lawnet()
+                if login_status == 'FAIL':
+                    self.download_status.emit(login_status)
 
-            downloader = lawnetsearch.lawnetBrowser(self.username,
-                                                    self.password,
-                                                    self.download_dir)
-            downloader.loginLawnet()
-            for i in self.citation_list:
-                progress_counter += progress_per_case
-                signal = downloader.downloadCase(i)
-                self.download_status.emit(signal)
-                self.progress_update.emit(progress_counter)
-            downloader.quit()
-            if progress_counter < 100:
-                self.progress_update.emit(100)
-            file_to_show = downloader.homedir
-            subprocess.call(["open", "-R", file_to_show])
+                elif login_status == 'SUCCESS':
+                    self.download_status.emit('\nLogin success!')
+
+                    for i in self.citation_list:
+                        self.progress_counter += self.progress_per_case
+                        signal = downloader.download_case(i)
+                        self.download_status.emit(signal)
+                        self.progress_update.emit(self.progress_counter)
+
+                    downloader.quit()
+                    self.finish_job(downloader)
+
+            elif self.backend == 'REQUESTS':
+                downloader = requests_lawnetsearch.RequestLawnetBrowser(self.username,
+                                                                        self.password,
+                                                                        self.download_dir)
+
+                login_status = downloader.login_lawnet()
+
+                if login_status == 'FAIL':
+                    self.download_status.emit(login_status)
+
+                elif login_status == 'SUCCESS':
+                    self.download_status.emit('\nLogin success!')
+
+                    def threader():
+                        while True:
+                            case = q.get()
+                            signal = downloader.download_case(case)
+                            self.progress_counter += self.progress_per_case
+                            self.download_status.emit(signal)
+                            self.progress_update.emit(self.progress_counter)
+                            q.task_done()
+
+                    q = Queue()
+                    for x in range(10):  # spawn up to 10 threads
+                        t = threading.Thread(target=threader)
+                        t.daemon = True
+                        t.start()
+
+                    for case in self.citation_list:  # putting cases into job pool
+                        q.put(case)
+
+                    q.join()
+                    self.finish_job(downloader)
 
 
 class DownloaderApp(QtWidgets.QWidget):
@@ -49,6 +96,7 @@ class DownloaderApp(QtWidgets.QWidget):
         super().__init__()
         self.citation_list = []
         self.download_directory = None
+        self.welcome_message = 'This is a tool that helps you download Singapore cases from Lawnet.\n\nInstructions:\n(1) Enter your SMU login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats).\n\n(3) Click the download button.'
 
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText('Username e.g. johnlee.2014')
@@ -75,9 +123,7 @@ class DownloaderApp(QtWidgets.QWidget):
 
         self.messagebox = QtWidgets.QTextEdit()
         self.messagebox.setReadOnly(True)  # make it non-editable
-        self.messagebox.insertPlainText(
-            'This is a tool that helps you download Singapore cases from Lawnet.\n\nInstructions:\n(1)Enter your SMU login credentials.\n\n(2)Load a reading list (only in .docx or .pdf formats).\n\n(3)Click the download button.'
-        )
+        self.messagebox.insertPlainText(self.welcome_message)
 
         grid = QtWidgets.QGridLayout()
         grid.setContentsMargins(15, 5, 15, 5)  # left, top, right, bottom
@@ -95,7 +141,7 @@ class DownloaderApp(QtWidgets.QWidget):
 
         self.setLayout(grid)
 
-        self.setGeometry(600, 400, 550, 300)
+        self.setGeometry(600, 400, 650, 390)
         self.setWindowTitle('Reading List Downloader (SMU version)')
         self.show()
         self.progress.close()
@@ -145,7 +191,7 @@ class DownloaderApp(QtWidgets.QWidget):
             self.start_button.setDisabled(True)
             self.progress.show()
             self.messagebox.clear()
-            self.messagebox.insertPlainText('Starting download...')
+            self.messagebox.insertPlainText('Logging in...')
         else:
             self.messagebox.clear()
             self.messagebox.insertPlainText(
@@ -161,7 +207,16 @@ class DownloaderApp(QtWidgets.QWidget):
             self.messagebox.insertPlainText('\nDownload complete!')
 
     def update_download_status(self, download_status):
-        self.messagebox.insertPlainText(download_status)
+        if download_status == 'FAIL':
+            self.start_button.setDisabled(False)
+            self.progress.close()
+            self.progress.setValue(5)
+            self.messagebox.clear()
+            self.messagebox.insertPlainText(
+                'Login failed, please try again.\n\n')
+            self.messagebox.insertPlainText(self.welcome_message)
+        else:
+            self.messagebox.insertPlainText(download_status)
 
 
 if __name__ == "__main__":
