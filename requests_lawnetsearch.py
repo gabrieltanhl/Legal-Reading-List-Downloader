@@ -3,67 +3,44 @@ import virtualbrowser
 import re
 import os
 from bs4 import BeautifulSoup
+from lawnetsearch import LawnetBrowser
 
-HEADERS = {
-    'User-Agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
-}
-
-LAWNET_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
 LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
-SMU_LOGIN_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
 
 
-class RequestLawnetBrowser():
-    def __init__(self, username, password, download_dir=None):
-        self.username = username
-        self.password = password
-        self.driver = virtualbrowser.chrome()
-        self.set_download_directory(download_dir)
-        self.cookies = None
-
-    def set_download_directory(self, download_dir):
-        if download_dir:
-            self.homedir = download_dir
-        else:
-            self.homedir = os.path.expanduser("~")+'/CaseFiles/'
-
-        if not os.path.exists(self.homedir):
-            os.makedirs(self.homedir)
-
+class RequestLawnetBrowser(LawnetBrowser):
     def login_lawnet(self):
-        self.driver.get(LAWNET_URL)
+        print('Logging into LawNet')
+        self.driver = virtualbrowser.chrome()
+        download_status = super().login_lawnet()
+        login_cookies = self.driver.get_cookies()
 
-        if self.driver.current_url != SMU_LOGIN_URL:
-            self.driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
-            username_field = self.driver.find_element_by_id("userNameInput")
-            password_field = self.driver.find_element_by_id("passwordInput")
-            username_field.send_keys('smustu\\' + self.username)
-            password_field.send_keys(self.password)
-            self.driver.find_element_by_xpath(
-                "//*[@id=\"submitButton\"]").click()
-            login_cookies = self.driver.get_cookies()
-            self.driver.quit()
+        self.driver.quit()
+        print('Browser closed')
 
-            for cookie in login_cookies:
-                if 'expiry' in cookie:
-                    cookie['expires'] = cookie['expiry']
-                    del cookie['expiry']
-                if 'httpOnly' in cookie:
-                    cookie['rest'] = {'HttpOnly': cookie['httpOnly']}
-                    del cookie['httpOnly']
+        self.cookies = self.make_cookies_requests_compatible(login_cookies)
+        return download_status
 
-            self.cookies = login_cookies
+    def make_cookies_requests_compatible(self, login_cookies):
+        for cookie in login_cookies:
+            if 'expiry' in cookie:
+                cookie['expires'] = cookie['expiry']
+                del cookie['expiry']
+            if 'httpOnly' in cookie:
+                cookie['rest'] = {'HttpOnly': cookie['httpOnly']}
+                del cookie['httpOnly']
+
+        return login_cookies
 
     def download_case(self, case_citation):
         print('Downloading case', case_citation)
         categories = ['1', '2', '4', '5', '6', '7', '8', '27']
         with requests.Session() as s:
-            s.headers.update(HEADERS)
+            s.headers.update(self.HEADERS)
             for cookie in self.cookies:
                 s.cookies.set(**cookie)
             # access search page
-            response = s.get(LAWNET_URL)
+            response = s.get(self.SMU_LAWNET_PROXY_URL)
             soup = BeautifulSoup(response.text, 'html.parser')
 
             try:
@@ -81,37 +58,32 @@ class RequestLawnetBrowser():
                         '_searchbasicformportlet_WAR_lawnet3legalresearchportlet_formDate'
                     }).get('value')
             except Exception as e:
-                return ('Unable to find case' + case_citation)
+                return ('Unable to find secret value or form action')
 
             # generate search payload to POST
             # current category and grouping are just extracted
             # from Chrome
-            search_payload = {
-                'grouping':
-                '1',
-                'category':
-                categories,
-                '_searchbasicformportlet_WAR_lawnet3legalresearchportlet_formDate':
-                secret_value,
-                'basicSearchKey':
-                case_citation
-            }
+            search_payload = {'grouping':
+                              '1',
+                              'category':
+                              categories,
+                              '_searchbasicformportlet_WAR_lawnet3legalresearchportlet_formDate':
+                              secret_value,
+                              'basicSearchKey':
+                              case_citation
+                              }
 
             search_response = s.post(form_action, data=search_payload)
 
-            search_soup = BeautifulSoup(search_response.text, 'lxml')
-            cases_found = search_soup.select('.document-title')
+            cases_found = self.get_case_list_html(search_response.text)
             # without javascript, there is a function call with a
             # "resource id" captured within the "onclick" action
             # of the link
-            cases_onclick = [(case['onclick'], case.get_text().replace('Ch.', 'Ch'))
+            # data structure: tuple - (case url, case text)
+            cases_onclick = [(case['onclick'], case.get_text())
                              for case in cases_found]
 
-            case_index = None
-            for index, case in enumerate(cases_onclick):
-                if case_citation.lower() in case[1].lower():
-                    case_index = index
-                    break
+            case_index = self.get_case_index(cases_onclick, case_citation)
 
             if case_index is None:
                 return ('\nUnable to find ' + case_citation + '.')
@@ -133,13 +105,6 @@ class RequestLawnetBrowser():
 
             if pdf_url:
                 pdf_file = s.get(pdf_url)
-                with open(self.homedir + case_citation + '.pdf',
-                          'wb') as case_file:
-                    case_file.write(pdf_file.content)
-
-                return ('\nPDF downloaded for ' + case_citation + '.')
+                return self.save_pdf(case_citation, pdf_file.content)
             else:
-                with open(self.homedir + case_citation + '.html', 'w', encoding='utf-8') as html_file:
-                    html_file.write(case_response.text)
-                return ('\nPDF not available for ' + case_citation +
-                        '. HTML version downloaded.')
+                return self.save_html(case_citation, case_response.text)
