@@ -68,7 +68,12 @@ class ProgressBar(QtCore.QThread):
 
                 elif login_status == 'SUCCESS':
                     self.download_status.emit('\nLogin success!')
-
+                
+                    '''
+                    Code below launches a thread for every case download.
+                    Max # worker threads is 10. Each worker thread pulls a task
+                    from the queue and executes it. 
+                    '''
                     def threader():
                         while True:
                             case = q.get()
@@ -88,6 +93,10 @@ class ProgressBar(QtCore.QThread):
                         q.put(case)
 
                     q.join()
+                    
+                    '''
+                    End of multi-threading code
+                    '''
                     self.finish_job(downloader)
 
 
