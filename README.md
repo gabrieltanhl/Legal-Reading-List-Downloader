@@ -36,3 +36,12 @@ Finally, go back to the project directory and run:
 pyinstaller mainapp.spec
 ```
 The binaries will be located in the ```dist``` folder.
+
+## Testing
+Testing is done using the PyTest framework. VCR.py is used to save the http responses, to minimise hits to the LawNet servers. On the first testing run, a folder cassettes/ will be created inside the tests/ folder. Delete this folder if you want the tests to make real requests to the LawNet servers.
+1. Make sure to install the testing dependencies as provided inside requirements.txt.
+2. Create a file ```credentials.py``` inside the tests/ folder. This file should contain 2 dicts called ```login``` and ```false_login```. Each dict should contain 2 keys ```username``` and ```password```. ```login``` dict should contain correct credentials, while ```false_login``` should contain fake credentials.
+3. Run the tests from the project root with ```python -m pytest tests```.
+
+#### SHA hashes
+The tests use SHA 256 to compare the downloaded files. Helper methods are provided inside ```tests/sha_helpers.py``` to generate and write the sha to a file.
