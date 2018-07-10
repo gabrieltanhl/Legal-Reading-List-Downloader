@@ -4,6 +4,7 @@ import re
 import os
 from bs4 import BeautifulSoup
 from lawnetsearch import LawnetBrowser
+import threading
 
 LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
 
@@ -32,16 +33,17 @@ class RequestLawnetBrowser(LawnetBrowser):
 
         return login_cookies
 
-    def download_case(self, case_citation):
+    def download_case(self, case_citation, lock):
         print('Downloading case', case_citation)
         categories = ['1', '2', '4', '5', '6', '7', '8', '27']
+
         with requests.Session() as s:
             s.headers.update(self.HEADERS)
             for cookie in self.cookies:
                 s.cookies.set(**cookie)
             # access search page
             response = s.get(self.SMU_LAWNET_PROXY_URL)
-            soup = BeautifulSoup(response.text, 'html.parser')
+            soup = BeautifulSoup(response.text, 'lxml')
 
             try:
                 # get the url to POST to
@@ -72,8 +74,9 @@ class RequestLawnetBrowser(LawnetBrowser):
                               'basicSearchKey':
                               case_citation
                               }
-
+            lock.acquire()  # only 1 thread can post the search request at any time
             search_response = s.post(form_action, data=search_payload)
+            lock.release()  # lock is released by the thread
 
             cases_found = self.get_case_list_html(search_response.text)
             # without javascript, there is a function call with a
