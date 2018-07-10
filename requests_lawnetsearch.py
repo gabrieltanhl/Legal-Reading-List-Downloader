@@ -33,7 +33,7 @@ class RequestLawnetBrowser(LawnetBrowser):
 
         return login_cookies
 
-    def download_case(self, case_citation, lock):
+    def download_case(self, case_citation, lock=None):
         print('Downloading case', case_citation)
         categories = ['1', '2', '4', '5', '6', '7', '8', '27']
 
@@ -74,9 +74,11 @@ class RequestLawnetBrowser(LawnetBrowser):
                               'basicSearchKey':
                               case_citation
                               }
-            lock.acquire()  # only 1 thread can post the search request at any time
+            if lock:
+                lock.acquire()  # only 1 thread can post the search request at any time
             search_response = s.post(form_action, data=search_payload)
-            lock.release()  # lock is released by the thread
+            if lock:
+                lock.release()  # lock is released by the thread
 
             cases_found = self.get_case_list_html(search_response.text)
             # without javascript, there is a function call with a
