@@ -74,14 +74,18 @@ class ProgressBar(QtCore.QThread):
                     Max # worker threads is 10. Each worker thread pulls a task
                     from the queue and executes it. 
                     '''
-                    lock = threading.Lock()
+                    search_lock = threading.Lock()
+                    signal_lock = threading.Lock()
 
                     def threader():
                         while True:
                             case = q.get()
-                            signal = downloader.download_case(case, lock)
+                            signal = downloader.download_case(
+                                case, search_lock)
                             self.progress_counter += self.progress_per_case
+                            signal_lock.acquire()
                             self.download_status.emit(signal)
+                            signal_lock.release()
                             self.progress_update.emit(self.progress_counter)
                             q.task_done()
 
