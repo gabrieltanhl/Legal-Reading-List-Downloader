@@ -27,3 +27,4 @@ wrapt==1.10.11
 pytest==3.6.3
 vcrpy==1.12
 pytest-vcr==0.3.0
+xhtml2pdf==0.2.2
