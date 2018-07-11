@@ -112,4 +112,7 @@ class RequestLawnetBrowser(LawnetBrowser):
                 pdf_file = s.get(pdf_url)
                 return self.save_pdf(case_citation, pdf_file.content)
             else:
-                return self.save_html(case_citation, case_response.text)
+                try:
+                    return self.save_html2pdf(case_citation, case_response.text)
+                except:
+                    return self.save_html(case_citation, case_response.text)
