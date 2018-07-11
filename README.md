@@ -8,7 +8,7 @@ For now it only supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. To enab
 ## Prerequisites
 1. Download the latest chromedriver from http://chromedriver.chromium.org/downloads and place it in the project directory
 2. Make sure the dependencies in requirements.txt are installed and you have Python 3.6 or higher. The dependencies should be installed in a virtual environment e.g. using ```virtualenv```.
-3. Install PySide2 (see https://doc.qt.io/qtforpython/gettingstarted.html)
+3. Install PySide2==5.9 with ```python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.9/latest pyside2 --trusted-host download.qt.io```
 
 ## Running the app without compiling
 1. Run ```python mainapp.py``` or ```python3 mainapp.py``` in your terminal
@@ -28,9 +28,15 @@ app = BUNDLE(exe,
              bundle_identifier=None)
 ```
 
-Next, go into your virtualenv folder and find the ```pdfminer``` folder in the ```site-packages``` directory. In the ```pdfminer``` folder,
-open ```pdfdocument.py``` and replace all mentions of Crypto to Cryptodome. Without performing this step, compilation will not work.
-
+Next, go into your virtualenv folder and find the ```site-packages``` directory. Make the following 2 changes within ```site-packages```:
+1) In the ```pdfminer``` folder, open ```pdfdocument.py``` and replace all mentions of Crypto to Cryptodome.
+2) In the ```xhtml2pdf``` folder, open ```tags.py``` and replace ```from reportlab.graphics.barcode import createBarcodeDrawing``` with
+```
+try:
+    from reportlab.graphics.barcode import createBarcodeDrawing
+except:
+    pass
+```
 Finally, go back to the project directory and run:
 ```
 pyinstaller mainapp.spec
