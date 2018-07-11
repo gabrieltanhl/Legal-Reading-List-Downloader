@@ -3,6 +3,7 @@ import re
 import os
 from bs4 import BeautifulSoup
 import pickle
+from xhtml2pdf import pisa
 
 
 class LawnetBrowser():
@@ -82,3 +83,16 @@ class LawnetBrowser():
             case_file.write(case_data)
 
         return (f'\nPDF not available for {case_citation}. HTML version downloaded.')
+
+    def save_html2pdf(self, case_citation, case_data):
+        def cleanup_html(source_html):
+            divider = "<div class=\"navi-container\"> </div>"
+            new_html = source_html.split(divider)[1]
+            return new_html
+
+        case_path = os.path.join(self.download_dir, case_citation + '.pdf')
+        resultFile = open(case_path, "w+b")
+        new_html = cleanup_html(case_data)
+        pisa.CreatePDF(new_html, dest=resultFile)
+        resultFile.close()
+        return f'\nPDF downloaded for {case_citation}.'
