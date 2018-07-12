@@ -3,6 +3,12 @@ A desktop app that automatically download cases in your reading lists from LawNe
 
 Currently supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases.
 
+Only for SMU LawNet accounts (as of now).
+
+Start screen             |  Downloading cases
+:-------------------------:|:-------------------------:
+![](https://user-images.githubusercontent.com/24975800/42613999-6dd8d7c8-85d6-11e8-83f2-0437783a0d32.png "Start page of app")  |  ![](https://user-images.githubusercontent.com/24975800/42614002-722c2168-85d6-11e8-8779-18e4b499ac63.png "Downloading cases")
+
 Built by law students from the Singapore Management University: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
 
 ## Prerequisites
