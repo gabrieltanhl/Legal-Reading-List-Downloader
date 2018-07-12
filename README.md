@@ -13,7 +13,7 @@ Built by law students from the Singapore Management University: [Gabriel Tan](ht
 ## Running the app without compiling
 Run ```mainapp.py``` in your terminal
 
-## Compilation instructions (macOS/Linux)
+## Compilation instructions
 In the project directory, run:
 ```
 pyi-makespec mainapp.py --onefile --windowed
