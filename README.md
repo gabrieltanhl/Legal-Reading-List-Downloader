@@ -18,7 +18,7 @@ In the project directory, run:
 ```
 pyi-makespec mainapp.py --onefile --windowed
 ```
-This will generate a ```mainapp.spec file``` in your project directory which provides compilation instructions to PyInstaller. Open ```mainapp.spec``` in a code editor and replace the binaries line with ```binaries=[('chromedriver','.')]```. This instructs PyInstaller to bundle the chromedriver binary when it is compiling the app.
+This will generate a ```mainapp.spec``` file in your project directory which provides compilation instructions to PyInstaller. Open ```mainapp.spec``` in a code editor and replace the binaries line with ```binaries=[('chromedriver','.')]```. This instructs PyInstaller to bundle the chromedriver binary when it is compiling the app.
 
 For the app to have its own name and icon, also make sure ```mainapp.spec``` contains the following:
 ```
