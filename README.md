@@ -1,9 +1,9 @@
-# Legal-Reading-List-Downloader (Beta)
-Automatically download cases in your reading lists from LawNet using a desktop app.
+# Legal Reading List Downloader (Beta)
+A desktop app that automatically download cases in your reading lists from LawNet.
 
-For now it only supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. To enable more case types, edit ```parsedocs.py```.
+Currently supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases.
 
-**DOCUMENTATION STILL IN PROGRESS**
+Built by law students from the Singapore Management University: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
 
 ## Prerequisites
 1. Download the latest chromedriver from http://chromedriver.chromium.org/downloads and place it in the project directory
@@ -11,20 +11,20 @@ For now it only supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. To enab
 3. Install PySide2==5.9 with ```python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.9/latest pyside2 --trusted-host download.qt.io```
 
 ## Running the app without compiling
-1. Run ```python mainapp.py``` or ```python3 mainapp.py``` in your terminal
+Run ```mainapp.py``` in your terminal
 
-## Instructions for compiling to binaries (macOS)
+## Compilation instructions (macOS/Linux)
 In the project directory, run:
 ```
 pyi-makespec mainapp.py --onefile --windowed
 ```
-This will generate the mainapp.spec file in your project directory which provides compilation instructions to PyInstaller. Open mainapp.spec in a code editor and replace the binaries line with ```binaries=[('chromedriver','.')]```. This instructs PyInstaller to bundle the chromedriver binary when it is compiling the app.
+This will generate a ```mainapp.spec file``` in your project directory which provides compilation instructions to PyInstaller. Open ```mainapp.spec``` in a code editor and replace the binaries line with ```binaries=[('chromedriver','.')]```. This instructs PyInstaller to bundle the chromedriver binary when it is compiling the app.
 
-For the app to have its own name and icon, also make sure mainapp.spec contains the following:
+For the app to have its own name and icon, also make sure ```mainapp.spec``` contains the following:
 ```
 app = BUNDLE(exe,
              name='Reading List Downloader.app',
-             icon='icons.icns',
+             icon='icon.icns',
              bundle_identifier=None)
 ```
 
