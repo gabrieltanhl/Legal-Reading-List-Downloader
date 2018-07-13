@@ -31,7 +31,10 @@ For the app to have its own name and icon, also make sure ```mainapp.spec``` con
 app = BUNDLE(exe,
              name='Reading List Downloader.app',
              icon='icon.icns',
-             bundle_identifier=None)
+             bundle_identifier=None,
+             info_plist={'NSPrincipalClass':'NSApplication',
+                         'NSHighResolutionCapable': 'True'}
+            )
 ```
 
 Next, go into your virtualenv folder and find the ```site-packages``` directory. Make the following 2 changes within ```site-packages```:
