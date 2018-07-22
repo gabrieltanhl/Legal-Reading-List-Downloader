@@ -72,7 +72,7 @@ class ProgressBar(QtCore.QThread):
                     '''
                     Code below launches a thread for every case download.
                     Max # worker threads is 10. Each worker thread pulls a task
-                    from the queue and executes it. 
+                    from the queue and executes it.
                     '''
                     search_lock = threading.Lock()
                     signal_lock = threading.Lock()
@@ -151,11 +151,25 @@ class App(QtWidgets.QWidget):
         # Show widget
         self.show()
 
-    def create_messagebox(self):
-        print('hello')
-        # message_box = QtWidgets.QMessageBox()
-        # message_box.setText('Hello World')
-        # message_box.exec()
+    def update_citation_list(self):
+        """
+        updates citation list whenever a case is checked/unchecked
+        this method is triggered by a signal from tableWidget.itemChanged.connect
+        """
+        num_rows = self.tableWidget.rowCount()
+
+        for row in range(num_rows):
+            table_item = self.tableWidget.item(row, 0)
+            checkbox_state = table_item.checkState()
+            case_citation = str(table_item.text())
+
+            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
+                if case_citation in self.citation_list:
+                    self.citation_list.remove(case_citation)
+
+            elif checkbox_state == QtCore.Qt.CheckState.Checked:
+                if case_citation not in self.citation_list:
+                    self.citation_list.append(case_citation)
 
     def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
@@ -171,8 +185,6 @@ class App(QtWidgets.QWidget):
         self.passwordbox.setPlaceholderText(' Password')
 
         self.lawnet_type = QtWidgets.QComboBox()
-        self.lawnet_type.setSizeAdjustPolicy(
-            QtWidgets.QComboBox.AdjustToMinimumContentsLength)
         self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
@@ -200,30 +212,21 @@ class App(QtWidgets.QWidget):
         self.tableWidget = QtWidgets.QTableWidget()
 
         # create columns and set sizing options
-        self.tableWidget.setColumnCount(3)
+        self.tableWidget.setColumnCount(2)
         self.tableWidget.setHorizontalHeaderLabels(
-            ['Case Title', 'Download?', 'Download Status'])
+            ['Case Title', 'Download Status'])
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeToContents)
-
-        # emit signal when any checkbox is unchecked
-        # NOT WORKING CURRENTLY
-        self.tableWidget.itemChanged.connect(self.create_messagebox())
 
     def construct_row_from_list(self, row_num, case_title):
         self.tableWidget.insertRow(row_num)
-        self.tableWidget.setItem(
-            row_num, 0, QtWidgets.QTableWidgetItem(case_title))
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
 
-        self.tableWidget.setItem(
-            row_num, 1, checkbox)
-        self.tableWidget.setItem(
-            row_num, 2, QtWidgets.QTableWidgetItem("-"))
+        self.tableWidget.setItem(row_num, 0, checkbox)
+        self.tableWidget.setItem(row_num, 1, QtWidgets.QTableWidgetItem("-"))
 
     def createMenuBar(self):
         self.menu_bar = QtWidgets.QMenuBar(self)
@@ -268,6 +271,10 @@ class App(QtWidgets.QWidget):
             self.citation_list = parsedocs.start_extract(fname[0])
             for row_num, case_title in enumerate(self.citation_list):
                 self.construct_row_from_list(row_num, case_title)
+
+        # after table is constructed, make it emit signals when
+        # any of the cases are checked
+        self.tableWidget.itemChanged.connect(self.update_citation_list)
 
     @Slot()
     def on_click(self):
