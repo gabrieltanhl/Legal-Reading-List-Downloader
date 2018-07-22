@@ -12,6 +12,7 @@ from queue import Queue
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
+    current_case = QtCore.Signal(str)
 
     def __init__(self,
                  USERNAME,
@@ -84,7 +85,9 @@ class ProgressBar(QtCore.QThread):
                                 case, search_lock)
                             self.progress_counter += self.progress_per_case
                             signal_lock.acquire()
-                            self.download_status.emit(signal)
+                            print(case + "{" + signal)
+                            self.download_status.emit(case + "{" + signal)
+                            # self.current_case.emit(case)
                             signal_lock.release()
                             self.progress_update.emit(self.progress_counter)
                             q.task_done()
@@ -179,16 +182,19 @@ class App(QtWidgets.QWidget):
     def createLeftColumn(self):
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText(' Username e.g. johnlee.2014')
+        self.usernamebox.textChanged.connect(self.disableButton)
 
         self.passwordbox = QtWidgets.QLineEdit()
         self.passwordbox.setEchoMode(QtWidgets.QLineEdit.Password)
         self.passwordbox.setPlaceholderText(' Password')
+        self.passwordbox.textChanged.connect(self.disableButton)
 
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
         self.start_button.clicked.connect(self.start_download)
+        self.start_button.setDisabled(True)
 
         self.import_button = QtWidgets.QPushButton(
             'Load Reading List', self)
@@ -219,7 +225,7 @@ class App(QtWidgets.QWidget):
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
 
-    def construct_row_from_list(self, row_num, case_title):
+    def construct_table_row_from_list(self, row_num, case_title):
         self.tableWidget.insertRow(row_num)
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
@@ -229,59 +235,36 @@ class App(QtWidgets.QWidget):
         self.tableWidget.setItem(row_num, 1, QtWidgets.QTableWidgetItem("-"))
 
     def createMenuBar(self):
-        self.menu_bar = QtWidgets.QMenuBar(self)
-        self.menu_bar.addMenu('Instructions')
-        self.menu_bar.addMenu('About')
-        self.menu_bar.setNativeMenuBar(False)
+        self.menu_bar = QtWidgets.QToolBar()
+        toolbar_instructions = QtWidgets.QAction('Instructions', self)
+        toolbar_about = QtWidgets.QAction('About', self)
 
-    def setStyles(self):
-        self.setStyleSheet("""
-        QMenuBar {
-            background-color: rgb(49,49,49);
-            color: rgb(255,255,255);
-            border: 1px solid #000;
-        }
+        self.menu_bar.addAction(toolbar_instructions)
+        self.menu_bar.addAction(toolbar_about)
 
-        QMenuBar::item {
-            background-color: rgb(49,49,49);
-            color: rgb(255,255,255);
-        }
+        toolbar_instructions.triggered.connect(self.show_instructions)
+        toolbar_about.triggered.connect(self.show_about)
 
-        QMenuBar::item::selected {
-            background-color: rgb(30,30,30);
-        }
-
-        QMenu {
-            background-color: rgb(49,49,49);
-            color: rgb(255,255,255);
-            border: 1px solid #000;
-        }
-
-        QMenu::item::selected {
-            background-color: rgb(30,30,30);
-        }
-    """)
+    def show_popup(self, message):
+        popup = QtWidgets.QMessageBox()
+        popup.setText(message)
+        popup.exec_()
 
     @Slot()
     def showDialog(self):
+        self.tableWidget.clearContents()
+        self.tableWidget.setRowCount(0)
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
                                                       '/home')
         # with the case names, construct the table
         if fname[0]:
             self.citation_list = parsedocs.start_extract(fname[0])
             for row_num, case_title in enumerate(self.citation_list):
-                self.construct_row_from_list(row_num, case_title)
+                self.construct_table_row_from_list(row_num, case_title)
 
         # after table is constructed, make it emit signals when
         # any of the cases are checked
         self.tableWidget.itemChanged.connect(self.update_citation_list)
-
-    @Slot()
-    def on_click(self):
-        print("\n")
-        for currentQTableWidgetItem in self.tableWidget.selectedItems():
-            print(currentQTableWidgetItem.row(),
-                  currentQTableWidgetItem.column(), currentQTableWidgetItem.text())
 
     @Slot()
     def disableButton(self):
@@ -310,6 +293,8 @@ class App(QtWidgets.QWidget):
             # connecting signal emitters to UI
             self.calc.progress_update.connect(self.update_progress_bar)
             self.calc.download_status.connect(self.update_download_status)
+            # self.calc.current_case.connect(self.update_download_status_column)
+
             self.start_button.setDisabled(True)
             self.progress.show()
             self.status_label.clear()
@@ -326,17 +311,73 @@ class App(QtWidgets.QWidget):
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
-            self.status_label.setText('Download complete!')
+            self.status_label.clear()
+            self.show_popup('Download complete!')
 
     def update_download_status(self, download_status):
+        if '{' in download_status:
+            current_case, download_status = download_status.split('{')
+        else:
+            current_case = None
+
         if download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
-            self.status_label.setText(
-                'Login failed, please try again.')
+            self.status_label.clear()
+            self.show_popup('Login failed, please try again.')
+
         else:
             self.status_label.setText(download_status)
+
+            if current_case:
+                num_rows = self.tableWidget.rowCount()
+                for row in range(num_rows):
+                    table_item = self.tableWidget.item(row, 0)
+                    case_citation = str(table_item.text())
+
+                    if case_citation == current_case:
+                        case_status = self.tableWidget.item(row, 1)
+                        case_status.setText(download_status)
+
+    def show_instructions(self):
+        popup = QtWidgets.QMessageBox()
+        popup.setText('Instructions')
+        popup.setInformativeText(
+            'This is a tool that helps you download Singapore cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Choose the cases you want to download\n\n(4) Click the download button.')
+        popup.exec_()
+
+    def show_about(self):
+        popup = QtWidgets.QMessageBox()
+        popup.setText('About')
+
+        popup.setInformativeText(
+            'This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021).\n\nWe would like to thank LawNet and SMU Law Library for their support.\n\nPlease check https://github.com/gabrieltanhl/Legal-Reading-List-Downloader frequently for new releases.')
+        popup.exec_()
+
+    def setStyles(self):
+        self.setStyleSheet("""
+        QToolBar {
+            border-bottom: 1px solid #808d97;
+            border-top: 1px solid #808d97;
+            background-color: #3a4f5e
+            }
+        QToolButton {
+            background:#3a4f5e; border: 1px solid #585858;
+            border-style: outset;
+            border-radius: 4px;
+            min-width: 5em;
+            min-height: 1.5em;
+            color: white;
+            }
+
+        QToolButton:hover {
+            background: #5d7180;
+            border: 1px groove #293843;}
+
+        QToolButton:pressed {background:#475864; border: 1px groove #293843;}
+
+         """)
 
 
 if __name__ == '__main__':
