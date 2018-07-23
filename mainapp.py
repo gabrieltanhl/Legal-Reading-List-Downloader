@@ -231,8 +231,11 @@ class App(QtWidgets.QWidget):
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
 
+        downloadstatus = QtWidgets.QTableWidgetItem("-")
+        downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
+
         self.tableWidget.setItem(row_num, 0, checkbox)
-        self.tableWidget.setItem(row_num, 1, QtWidgets.QTableWidgetItem("-"))
+        self.tableWidget.setItem(row_num, 1, downloadstatus)
 
     def createMenuBar(self):
         self.menu_bar = QtWidgets.QToolBar()
