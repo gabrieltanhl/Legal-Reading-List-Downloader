@@ -52,7 +52,7 @@ class ProgressBar(QtCore.QThread):
                         self.progress_counter += self.progress_per_case
                         signal = downloader.download_case(i)
                         self.download_status.emit(signal)
-                        self.progress_update.emit(int(self.progress_counter))
+                        self.progress_update.emit(self.progress_counter)
 
                     downloader.quit()
                     self.finish_job(downloader)
@@ -89,7 +89,8 @@ class ProgressBar(QtCore.QThread):
                             self.download_status.emit(case + "{" + signal)
                             # self.current_case.emit(case)
                             signal_lock.release()
-                            self.progress_update.emit(int(self.progress_counter))
+                            self.progress_update.emit(
+                                int(self.progress_counter))
                             q.task_done()
 
                     q = Queue()
@@ -226,6 +227,7 @@ class App(QtWidgets.QWidget):
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
 
     def construct_table_row_from_list(self, row_num, case_title):
+
         self.tableWidget.insertRow(row_num)
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
@@ -347,7 +349,7 @@ class App(QtWidgets.QWidget):
         popup = QtWidgets.QMessageBox()
         popup.setText('Instructions')
         popup.setInformativeText(
-            'This is a tool that helps you download Singapore cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Choose the cases you want to download\n\n(4) Click the download button.')
+            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Choose the cases you want to download\n\n(4) Click the download button.')
         popup.exec_()
 
     def show_about(self):
@@ -355,7 +357,7 @@ class App(QtWidgets.QWidget):
         popup.setText('About')
 
         popup.setInformativeText(
-            'This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021).\n\nWe would like to thank LawNet and SMU Law Library for their support.\n\nPlease check https://github.com/gabrieltanhl/Legal-Reading-List-Downloader frequently for new releases.')
+            "This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021).\n\nCases are downloaded from SAL LawNet and are subject to their terms and conditions (https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions).\n\nThe app's source code and license are available at https://github.com/gabrieltanhl/Legal-Reading-List-Downloader.")
         popup.exec_()
 
     def setStyles(self):
@@ -379,7 +381,6 @@ class App(QtWidgets.QWidget):
             border: 1px groove #293843;}
 
         QToolButton:pressed {background:#475864; border: 1px groove #293843;}
-
          """)
 
 
