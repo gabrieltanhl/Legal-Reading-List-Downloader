@@ -4,6 +4,7 @@ import os
 from bs4 import BeautifulSoup
 import pickle
 from xhtml2pdf import pisa
+from selenium.common.exceptions import NoSuchElementException
 
 
 class LawnetBrowser():
@@ -55,7 +56,7 @@ class LawnetBrowser():
                     "errorText").text
                 if 'Incorrect user ID or password' in login_message:
                     return 'FAIL'
-            except:
+            except NoSuchElementException:
                 return 'SUCCESS'
 
     def get_case_list_html(self, results_html):
