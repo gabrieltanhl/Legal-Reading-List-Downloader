@@ -26,7 +26,7 @@ class ProgressBar(QtCore.QThread):
         self.citation_list = CITATION_LIST
         self.download_dir = DOWNLOAD_DIR
         self.backend = 'REQUESTS'
-        self.progress_per_case = int(100 / len(self.citation_list))
+        self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
 
     def finish_job(self, downloader):
@@ -52,7 +52,7 @@ class ProgressBar(QtCore.QThread):
                         self.progress_counter += self.progress_per_case
                         signal = downloader.download_case(i)
                         self.download_status.emit(signal)
-                        self.progress_update.emit(self.progress_counter)
+                        self.progress_update.emit(int(self.progress_counter))
 
                     downloader.quit()
                     self.finish_job(downloader)
@@ -89,7 +89,7 @@ class ProgressBar(QtCore.QThread):
                             self.download_status.emit(case + "{" + signal)
                             # self.current_case.emit(case)
                             signal_lock.release()
-                            self.progress_update.emit(self.progress_counter)
+                            self.progress_update.emit(int(self.progress_counter))
                             q.task_done()
 
                     q = Queue()
