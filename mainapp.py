@@ -18,6 +18,7 @@ class ProgressBar(QtCore.QThread):
                  USERNAME,
                  PASSWORD,
                  CITATION_LIST,
+                 lawnet_type,
                  DOWNLOAD_DIR=None,
                  parent=None):
         QtCore.QThread.__init__(self)
@@ -28,6 +29,13 @@ class ProgressBar(QtCore.QThread):
         self.backend = 'REQUESTS'
         self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
+        if lawnet_type == 0:
+            self.login_prefix = 'smustu'
+        elif lawnet_type == 1:
+            self.login_prefix = 'smustf'
+        else:
+            self.login_prefix = 'smustu'
+        print('login prefix', self.login_prefix)
 
     def finish_job(self, downloader):
         if self.progress_counter < 100:
@@ -40,6 +48,7 @@ class ProgressBar(QtCore.QThread):
             if self.backend == 'CHROME':
                 downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
                                                                      self.password,
+                                                                     self.login_prefix,
                                                                      self.download_dir)
                 login_status = downloader.login_lawnet()
                 if login_status == 'FAIL':
@@ -60,6 +69,7 @@ class ProgressBar(QtCore.QThread):
             elif self.backend == 'REQUESTS':
                 downloader = requests_lawnetsearch.RequestLawnetBrowser(self.username,
                                                                         self.password,
+                                                                        self.login_prefix,
                                                                         self.download_dir)
 
                 login_status = downloader.login_lawnet()
@@ -292,6 +302,7 @@ class App(QtWidgets.QWidget):
             self.calc = ProgressBar(self.usernamebox.text(),
                                     self.passwordbox.text(),
                                     self.citation_list,
+                                    self.lawnet_type.currentIndex(),
                                     self.download_directory)
 
             self.calc.start()
