@@ -12,11 +12,13 @@ from queue import Queue
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
+    current_case = QtCore.Signal(str)
 
     def __init__(self,
                  USERNAME,
                  PASSWORD,
                  CITATION_LIST,
+                 lawnet_type,
                  DOWNLOAD_DIR=None,
                  parent=None):
         QtCore.QThread.__init__(self)
@@ -25,8 +27,15 @@ class ProgressBar(QtCore.QThread):
         self.citation_list = CITATION_LIST
         self.download_dir = DOWNLOAD_DIR
         self.backend = 'REQUESTS'
-        self.progress_per_case = int(100 / len(self.citation_list))
+        self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
+        if lawnet_type == 0:
+            self.login_prefix = 'smustu'
+        elif lawnet_type == 1:
+            self.login_prefix = 'smustf'
+        else:
+            self.login_prefix = 'smustu'
+        print('login prefix', self.login_prefix)
 
     def finish_job(self, downloader):
         if self.progress_counter < 100:
@@ -39,13 +48,14 @@ class ProgressBar(QtCore.QThread):
             if self.backend == 'CHROME':
                 downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
                                                                      self.password,
+                                                                     self.login_prefix,
                                                                      self.download_dir)
                 login_status = downloader.login_lawnet()
                 if login_status == 'FAIL':
                     self.download_status.emit(login_status)
 
                 elif login_status == 'SUCCESS':
-                    self.download_status.emit('\nLogin success!')
+                    self.download_status.emit('Login success!')
 
                     for i in self.citation_list:
                         self.progress_counter += self.progress_per_case
@@ -59,6 +69,7 @@ class ProgressBar(QtCore.QThread):
             elif self.backend == 'REQUESTS':
                 downloader = requests_lawnetsearch.RequestLawnetBrowser(self.username,
                                                                         self.password,
+                                                                        self.login_prefix,
                                                                         self.download_dir)
 
                 login_status = downloader.login_lawnet()
@@ -72,7 +83,7 @@ class ProgressBar(QtCore.QThread):
                     '''
                     Code below launches a thread for every case download.
                     Max # worker threads is 10. Each worker thread pulls a task
-                    from the queue and executes it. 
+                    from the queue and executes it.
                     '''
                     search_lock = threading.Lock()
                     signal_lock = threading.Lock()
@@ -84,9 +95,12 @@ class ProgressBar(QtCore.QThread):
                                 case, search_lock)
                             self.progress_counter += self.progress_per_case
                             signal_lock.acquire()
-                            self.download_status.emit(signal)
+                            print(case + "{" + signal)
+                            self.download_status.emit(case + "{" + signal)
+                            # self.current_case.emit(case)
                             signal_lock.release()
-                            self.progress_update.emit(self.progress_counter)
+                            self.progress_update.emit(
+                                int(self.progress_counter))
                             q.task_done()
 
                     q = Queue()
@@ -106,64 +120,166 @@ class ProgressBar(QtCore.QThread):
                     self.finish_job(downloader)
 
 
-class DownloaderApp(QtWidgets.QWidget):
+class App(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.citation_list = []
+        self.title = 'Reading List Downloader'
+        self.left = 600
+        self.top = 400
+        self.width = 800
+        self.height = 500
         self.download_directory = None
-        self.welcome_message = 'This is a tool that helps you download Singapore cases from Lawnet.\n\nInstructions:\n(1) Enter your SMU login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats).\n\n(3) Click the download button.'
+        self.citation_list = []
+        self.initUI()
 
-        self.usernamebox = QtWidgets.QLineEdit()
-        self.usernamebox.setPlaceholderText('Username e.g. johnlee.2014')
-        self.passwordbox = QtWidgets.QLineEdit()
-        self.passwordbox.setEchoMode(QtWidgets.QLineEdit.Password)
-        self.passwordbox.setPlaceholderText('Password')
+    def initUI(self):
+        self.setWindowTitle(self.title)
+        self.setGeometry(self.left, self.top, self.width, self.height)
 
+        self.createMenuBar()
+        self.createTable()
+        self.createLeftColumn()
+        self.createProgressBar()
+        self.setStyles()  # styling the menubar
+
+        # main_layout consists of button column + download table
+        # ratio of left_column width to table width is 1:3
+        self.main_layout = QtWidgets.QHBoxLayout()
+        self.main_layout.addLayout(self.left_layout, 1)
+        self.main_layout.addWidget(self.tableWidget, 3)
+
+        # overall layout which consists of the main_layout and the menu_bar
+        self.overall_layout = QtWidgets.QVBoxLayout()
+        self.overall_layout.addWidget(self.menu_bar)
+        self.overall_layout.addLayout(self.main_layout)
+        self.overall_layout.addWidget(self.progress)
+        self.status_label = QtWidgets.QLabel()
+        self.overall_layout.addWidget(self.status_label)
+
+        # add overall_layout to app
+        self.setLayout(self.overall_layout)
+
+        # hide progress bar on initial launch
+        self.progress.close()
+
+        # Show widget
+        self.show()
+
+    def update_citation_list(self):
+        """
+        updates citation list whenever a case is checked/unchecked
+        this method is triggered by a signal from tableWidget.itemChanged.connect
+        """
+        num_rows = self.tableWidget.rowCount()
+
+        for row in range(num_rows):
+            table_item = self.tableWidget.item(row, 0)
+            checkbox_state = table_item.checkState()
+            case_citation = str(table_item.text())
+
+            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
+                if case_citation in self.citation_list:
+                    self.citation_list.remove(case_citation)
+
+            elif checkbox_state == QtCore.Qt.CheckState.Checked:
+                if case_citation not in self.citation_list:
+                    self.citation_list.append(case_citation)
+
+    def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
-        self.progress.setValue(3)
+        self.progress.setValue(1)
         self.progress.setStyle(QtWidgets.QStyleFactory.create('fusion'))
 
-        self.import_button = QtWidgets.QPushButton('Load Reading List', self)
+    def createLeftColumn(self):
+        self.usernamebox = QtWidgets.QLineEdit()
+        self.usernamebox.setPlaceholderText(' Username e.g. johnlee.2014')
+        self.usernamebox.textChanged.connect(self.disableButton)
+
+        self.passwordbox = QtWidgets.QLineEdit()
+        self.passwordbox.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.passwordbox.setPlaceholderText(' Password')
+        self.passwordbox.textChanged.connect(self.disableButton)
+
+        self.lawnet_type = QtWidgets.QComboBox()
+        self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
+
+        self.start_button = QtWidgets.QPushButton('Start Download', self)
+        self.start_button.clicked.connect(self.start_download)
+        self.start_button.setDisabled(True)
+
+        self.import_button = QtWidgets.QPushButton(
+            'Load Reading List', self)
         self.import_button.clicked.connect(self.showDialog)
 
         self.directory_button = QtWidgets.QPushButton(
             'Select Download Directory', self)
         self.directory_button.clicked.connect(self.select_download_directory)
 
-        self.start_button = QtWidgets.QPushButton('Start Download', self)
-        self.start_button.setDisabled(True)
-        self.usernamebox.textChanged.connect(self.disableButton)
-        self.passwordbox.textChanged.connect(self.disableButton)
-        self.start_button.clicked.connect(self.start_download)
+        self.left_layout = QtWidgets.QVBoxLayout()
+        self.left_layout.addWidget(self.usernamebox)
+        self.left_layout.addWidget(self.passwordbox)
+        self.left_layout.addWidget(self.lawnet_type)
+        self.left_layout.addStretch()
+        self.left_layout.addWidget(self.import_button)
+        self.left_layout.addWidget(self.directory_button)
+        self.left_layout.addWidget(self.start_button)
 
-        self.messagebox = QtWidgets.QTextEdit()
-        self.messagebox.setReadOnly(True)  # make it non-editable
-        self.messagebox.insertPlainText(self.welcome_message)
+    def createTable(self):
+        # Create table
+        self.tableWidget = QtWidgets.QTableWidget()
 
-        grid = QtWidgets.QGridLayout()
-        grid.setContentsMargins(15, 5, 15, 5)  # left, top, right, bottom
-        grid.setVerticalSpacing(5)
-        grid.setColumnStretch(0, 6)
-        grid.setColumnStretch(1, 4)
+        # create columns and set sizing options
+        self.tableWidget.setColumnCount(2)
+        self.tableWidget.setHorizontalHeaderLabels(
+            ['Case Title', 'Download Status'])
+        header = self.tableWidget.horizontalHeader()
+        header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
 
-        grid.addWidget(self.usernamebox, 0, 1)
-        grid.addWidget(self.passwordbox, 1, 1)
-        grid.addWidget(self.import_button, 2, 1)
-        grid.addWidget(self.directory_button, 3, 1)
-        grid.addWidget(self.start_button, 4, 1)
-        grid.addWidget(self.messagebox, 0, 0, 5, 1)
-        grid.addWidget(self.progress, 5, 0, 1, 2)
+    def construct_table_row_from_list(self, row_num, case_title):
 
-        self.setLayout(grid)
+        self.tableWidget.insertRow(row_num)
 
-        self.setGeometry(600, 400, 650, 390)
-        self.setWindowTitle('Reading List Downloader (SMU version)')
-        self.show()
-        self.progress.close()
+        checkbox = QtWidgets.QTableWidgetItem(case_title)
+        checkbox.setCheckState(QtCore.Qt.Checked)
 
-    """
-    Connectors
-    """
+        downloadstatus = QtWidgets.QTableWidgetItem("-")
+        downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
+
+        self.tableWidget.setItem(row_num, 0, checkbox)
+        self.tableWidget.setItem(row_num, 1, downloadstatus)
+
+    def createMenuBar(self):
+        self.menu_bar = QtWidgets.QToolBar()
+        toolbar_instructions = QtWidgets.QAction('Instructions', self)
+        toolbar_about = QtWidgets.QAction('About', self)
+
+        self.menu_bar.addAction(toolbar_instructions)
+        self.menu_bar.addAction(toolbar_about)
+
+        toolbar_instructions.triggered.connect(self.show_instructions)
+        toolbar_about.triggered.connect(self.show_about)
+
+    def show_popup(self, message):
+        popup = QtWidgets.QMessageBox()
+        popup.setText(message)
+        popup.exec_()
+
+    @Slot()
+    def showDialog(self):
+        self.tableWidget.clearContents()
+        self.tableWidget.setRowCount(0)
+        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
+                                                      '/home')
+        # with the case names, construct the table
+        if fname[0]:
+            self.citation_list = parsedocs.start_extract(fname[0])
+            for row_num, case_title in enumerate(self.citation_list):
+                self.construct_table_row_from_list(row_num, case_title)
+
+        # after table is constructed, make it emit signals when
+        # any of the cases are checked
+        self.tableWidget.itemChanged.connect(self.update_citation_list)
 
     @Slot()
     def disableButton(self):
@@ -172,17 +288,6 @@ class DownloaderApp(QtWidgets.QWidget):
             self.start_button.setDisabled(False)
         else:
             self.start_button.setDisabled(True)
-
-    @Slot()
-    def showDialog(self):
-        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
-                                                      '/home')
-        if fname[0]:
-            self.citation_list = parsedocs.start_extract(fname[0])
-            self.messagebox.insertPlainText(
-                '\n\n' + str(len(self.citation_list)) +
-                ' cases which can be found on LawNet:\n' +
-                '\n'.join(self.citation_list))
 
     @Slot()
     def select_download_directory(self):
@@ -197,19 +302,22 @@ class DownloaderApp(QtWidgets.QWidget):
             self.calc = ProgressBar(self.usernamebox.text(),
                                     self.passwordbox.text(),
                                     self.citation_list,
+                                    self.lawnet_type.currentIndex(),
                                     self.download_directory)
 
             self.calc.start()
             # connecting signal emitters to UI
             self.calc.progress_update.connect(self.update_progress_bar)
             self.calc.download_status.connect(self.update_download_status)
+            # self.calc.current_case.connect(self.update_download_status_column)
+
             self.start_button.setDisabled(True)
             self.progress.show()
-            self.messagebox.clear()
-            self.messagebox.insertPlainText('Logging in...')
+            self.status_label.clear()
+            self.status_label.setText('Logging in...')
         else:
-            self.messagebox.clear()
-            self.messagebox.insertPlainText(
+            self.status_label.clear()
+            self.status_label.setText(
                 'No cases detected. Please load a reading list.')
 
     def update_progress_bar(self, progress_counter):
@@ -218,27 +326,76 @@ class DownloaderApp(QtWidgets.QWidget):
         if progress_counter == 100 and self.progress.value != 5:
             self.start_button.setDisabled(False)
             self.progress.close()
-            self.progress.setValue(5)
-            self.messagebox.insertPlainText('\nDownload complete!')
+            self.progress.setValue(1)
+            self.status_label.clear()
+            self.show_popup('Download complete!')
 
     def update_download_status(self, download_status):
+        if '{' in download_status:
+            current_case, download_status = download_status.split('{')
+        else:
+            current_case = None
+
         if download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
-            self.progress.setValue(5)
-            self.messagebox.clear()
-            self.messagebox.insertPlainText(
-                'Login failed, please try again.\n\n')
-            self.messagebox.insertPlainText(self.welcome_message)
+            self.progress.setValue(1)
+            self.status_label.clear()
+            self.show_popup('Login failed, please try again.')
+
         else:
-            self.messagebox.insertPlainText(download_status)
+            self.status_label.setText(download_status)
+
+            if current_case:
+                num_rows = self.tableWidget.rowCount()
+                for row in range(num_rows):
+                    table_item = self.tableWidget.item(row, 0)
+                    case_citation = str(table_item.text())
+
+                    if case_citation == current_case:
+                        case_status = self.tableWidget.item(row, 1)
+                        case_status.setText(download_status)
+
+    def show_instructions(self):
+        popup = QtWidgets.QMessageBox()
+        popup.setText('Instructions')
+        popup.setInformativeText(
+            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Choose the cases you want to download\n\n(4) Click the download button.')
+        popup.exec_()
+
+    def show_about(self):
+        popup = QtWidgets.QMessageBox()
+        popup.setText('About')
+
+        popup.setInformativeText(
+            "This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021).\n\nCases are downloaded from SAL LawNet and are subject to their terms and conditions (https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions).\n\nThe app's source code and license are available at https://github.com/gabrieltanhl/Legal-Reading-List-Downloader.")
+        popup.exec_()
+
+    def setStyles(self):
+        self.setStyleSheet("""
+        QToolBar {
+            border-bottom: 1px solid #808d97;
+            border-top: 1px solid #808d97;
+            background-color: #3a4f5e
+            }
+        QToolButton {
+            background:#3a4f5e; border: 1px solid #585858;
+            border-style: outset;
+            border-radius: 4px;
+            min-width: 5em;
+            min-height: 1.5em;
+            color: white;
+            }
+
+        QToolButton:hover {
+            background: #5d7180;
+            border: 1px groove #293843;}
+
+        QToolButton:pressed {background:#475864; border: 1px groove #293843;}
+         """)
 
 
-if __name__ == "__main__":
-    app = QtWidgets.QApplication([])
-    app.setApplicationDisplayName('Reading List Downloader')
-    app.setWindowIcon(QtGui.QIcon('icon.icns'))
-    widget = DownloaderApp()
-    widget.show()
-
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+    ex = App()
     sys.exit(app.exec_())

@@ -11,8 +11,10 @@ DOWNLOAD_DIR = os.path.join(BASE_DIR, 'tests/downloads/')
 
 @pytest.fixture(scope='class')
 def browser(request):
-    browser = RequestLawnetBrowser(login['username'], login['password'],
-                                   DOWNLOAD_DIR)
+
+    browser = RequestLawnetBrowser(
+        login['username'], login['password'], login['user_type'], DOWNLOAD_DIR)
+
     request.cls.browser = browser
     yield
 
