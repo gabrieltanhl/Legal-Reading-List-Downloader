@@ -370,7 +370,7 @@ class App(QtWidgets.QWidget):
         popup.setText('About')
 
         popup.setInformativeText(
-            "This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021).\n\nCases are downloaded from SAL LawNet and are subject to their terms and conditions (https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions).\n\nThe app's source code and license are available at https://github.com/gabrieltanhl/Legal-Reading-List-Downloader.")
+            "This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The app's source code and license are available at https://github.com/gabrieltanhl/Legal-Reading-List-Downloader.\n\nCases are downloaded from SAL LawNet and are subject to their terms and conditions (https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions).\n\n\nCopyright (C) 2018 Gabriel Tan, Ng Jun Xuan.\n\nThis program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.")
         popup.exec_()
 
     def setStyles(self):
