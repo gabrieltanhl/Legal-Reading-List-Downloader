@@ -53,9 +53,10 @@ def start_extract(filepath):
         r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()WLRMLJCh]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+')
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
-    citation_list = list(
-        set(list(itertools.chain.from_iterable(citation_list))))
+    print(citation_list)
+    citation_list = set(list(itertools.chain.from_iterable(citation_list)))
 
     citation_list = [
         i for i in citation_list if check_lawnet_compatibility(i) is True]
+    citation_list = [' '.join(citation.split()) for citation in citation_list]
     return citation_list

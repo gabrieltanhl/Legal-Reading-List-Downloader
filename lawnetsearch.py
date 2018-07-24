@@ -4,6 +4,7 @@ import os
 from bs4 import BeautifulSoup
 import pickle
 from xhtml2pdf import pisa
+from selenium.common.exceptions import NoSuchElementException
 
 
 class LawnetBrowser():
@@ -14,7 +15,7 @@ class LawnetBrowser():
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
     }
 
-    def __init__(self, username, password, download_dir=None):
+    def __init__(self, username, password, login_prefix, download_dir=None):
         self.username = username
         self.password = password
         self.driver = None
@@ -22,6 +23,8 @@ class LawnetBrowser():
         self.cookiepath = None
         self.download_dir = None
         self.set_download_directory(download_dir)
+        self.login_prefix = login_prefix
+        print(login_prefix)
 
     def set_download_directory(self, download_dir):
         if download_dir:
@@ -42,7 +45,8 @@ class LawnetBrowser():
             self.driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
             username_field = self.driver.find_element_by_id("userNameInput")
             password_field = self.driver.find_element_by_id("passwordInput")
-            username_field.send_keys('smustu\\' + self.username)
+            print(f'{self.login_prefix}\\{self.username}')
+            username_field.send_keys(f'{self.login_prefix}\\{self.username}')
             password_field.send_keys(self.password)
             self.driver.find_element_by_xpath(
                 "//*[@id=\"submitButton\"]").click()
@@ -52,7 +56,7 @@ class LawnetBrowser():
                     "errorText").text
                 if 'Incorrect user ID or password' in login_message:
                     return 'FAIL'
-            except:
+            except NoSuchElementException:
                 return 'SUCCESS'
 
     def get_case_list_html(self, results_html):
