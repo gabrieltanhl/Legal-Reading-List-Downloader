@@ -343,8 +343,10 @@ class App(QtWidgets.QWidget):
             self.status_label.clear()
             self.show_popup('Login failed, please try again.')
 
-        else:
+        elif download_status == 'Login Success!':
             self.status_label.setText(download_status)
+        else:
+            self.status_label.setText('Downloading in progress...')
 
             if current_case:
                 num_rows = self.tableWidget.rowCount()
