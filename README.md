@@ -46,6 +46,10 @@ try:
 except:
     pass
 ```
+3) In the ```selenium\webdriver\common``` folder, open ```service.py``` and replace the existing self.process with
+```
+self.process = subprocess.Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=False, creationflags=0x08000000)
+```
 Finally, go back to the project directory and run:
 ```
 pyinstaller mainapp.spec
