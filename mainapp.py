@@ -1,12 +1,13 @@
 import sys
 from PySide2 import QtCore, QtWidgets, QtGui
-from PySide2.QtCore import Slot
+from PySide2.QtCore import Slot, QSettings
 import parsedocs
 import subprocess
 import chrome_lawnetsearch
 import requests_lawnetsearch
 import threading
 from queue import Queue
+import pathlib
 
 
 class ProgressBar(QtCore.QThread):
@@ -35,7 +36,6 @@ class ProgressBar(QtCore.QThread):
             self.login_prefix = 'smustf'
         else:
             self.login_prefix = 'smustu'
-        print('login prefix', self.login_prefix)
 
     def finish_job(self, downloader):
         if self.progress_counter < 100:
@@ -129,8 +129,12 @@ class App(QtWidgets.QWidget):
         self.width = 800
         self.height = 500
         self.download_directory = None
+        self.reading_list_directory = None
         self.citation_list = []
+        # Temporary "app name" with no organisation until details are confirmed
+        self.settings = QSettings("LegalList")
         self.initUI()
+        self.load_settings()
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -185,6 +189,16 @@ class App(QtWidgets.QWidget):
                 if case_citation not in self.citation_list:
                     self.citation_list.append(case_citation)
 
+    def load_settings(self):
+        if (self.settings.value('login_username')):
+            self.usernamebox.setText(self.settings.value('login_username'))
+        if (self.settings.value('login_usertype')):
+            self.lawnet_type.setCurrentIndex(self.settings.value('login_usertype'))
+        if (self.settings.value('download_directory')):
+            self.download_directory = self.settings.value('download_directory')
+        if (self.settings.value('reading_list_directory')):
+            self.reading_list_directory = self.settings.value('reading_list_directory')
+
     def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
         self.progress.setValue(1)
@@ -194,6 +208,7 @@ class App(QtWidgets.QWidget):
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText(' Username e.g. johnlee.2014')
         self.usernamebox.textChanged.connect(self.disableButton)
+        self.usernamebox.textChanged.connect(self.save_username)
 
         self.passwordbox = QtWidgets.QLineEdit()
         self.passwordbox.setEchoMode(QtWidgets.QLineEdit.Password)
@@ -202,6 +217,7 @@ class App(QtWidgets.QWidget):
 
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
+        self.lawnet_type.currentIndexChanged.connect(self.save_usertype)
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
         self.start_button.clicked.connect(self.start_download)
@@ -265,17 +281,35 @@ class App(QtWidgets.QWidget):
         popup.setText(message)
         popup.exec_()
 
+    def save_reading_list_directory(self, reading_list_directory):
+        self.settings.setValue('reading_list_directory', reading_list_directory)
+
+    def save_download_directory(self, download_directory):
+        self.settings.setValue('download_directory', download_directory)
+
+    @Slot()
+    def save_usertype(self, usertype_index):
+        self.settings.setValue('login_usertype', usertype_index)
+
+    @Slot()
+    def save_username(self, text):
+        self.settings.setValue('login_username', text)
+
     @Slot()
     def showDialog(self):
         self.tableWidget.clearContents()
         self.tableWidget.setRowCount(0)
+        default_dir = str(pathlib.Path.home()) if self.reading_list_directory is None else self.reading_list_directory
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
-                                                      '/home')
+                                                      default_dir)
         # with the case names, construct the table
         if fname[0]:
             self.citation_list = parsedocs.start_extract(fname[0])
             for row_num, case_title in enumerate(self.citation_list):
                 self.construct_table_row_from_list(row_num, case_title)
+
+            reading_list_directory = str(pathlib.Path(fname[0]).parent)
+            self.save_reading_list_directory(reading_list_directory)
 
         # after table is constructed, make it emit signals when
         # any of the cases are checked
@@ -291,11 +325,13 @@ class App(QtWidgets.QWidget):
 
     @Slot()
     def select_download_directory(self):
-        dialogue = QtWidgets.QFileDialog.getExistingDirectory(
-            self, 'Select the download directory')
+        default_dir = str(pathlib.Path.home()) if self.download_directory is None else self.download_directory
+        download_dir = QtWidgets.QFileDialog.getExistingDirectory(
+            self, 'Select the download directory', default_dir)
 
-        if dialogue:
-            self.download_directory = dialogue + '/'
+        if download_dir:
+            self.download_directory = download_dir + '/'
+            self.save_download_directory(download_dir)
 
     def start_download(self):
         if len(self.citation_list) > 0:
