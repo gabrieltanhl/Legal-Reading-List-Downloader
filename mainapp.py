@@ -284,7 +284,7 @@ class App(QtWidgets.QWidget):
         toolbar_instructions.triggered.connect(self.show_instructions)
         toolbar_about.triggered.connect(self.show_about)
 
-    def show_popup(self, message, body = None):
+    def show_popup(self, header, body = None):
         popup = QtWidgets.QMessageBox()
         popup.setTextFormat(QtCore.Qt.RichText)
         popup.setText(header)
@@ -390,7 +390,7 @@ class App(QtWidgets.QWidget):
             self.show_popup("App is locked",
                             "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!")
         
-        if download_status == 'FAIL':
+        elif download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
