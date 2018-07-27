@@ -1,17 +1,17 @@
 # Legal Reading List Downloader (Beta)
-A desktop app that automatically download cases in your reading lists from LawNet.
+A desktop app that automatically download cases in your reading lists from LawNet. **Please download the latest release from [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).**
 
-Currently supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases.
+Currently supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. More case types will supported in the future.
 
 Only for SMU LawNet accounts (as of now).
 
 Start screen             |  Downloading cases
 :-------------------------:|:-------------------------:
-![](https://user-images.githubusercontent.com/24975800/42613999-6dd8d7c8-85d6-11e8-83f2-0437783a0d32.png "Start page of app")  |  ![](https://user-images.githubusercontent.com/24975800/42614002-722c2168-85d6-11e8-8779-18e4b499ac63.png "Downloading cases")
+![](https://user-images.githubusercontent.com/24975800/43300130-0d21778a-9190-11e8-98b9-fd8c3b4e78eb.png "Start page of app")  |  ![](https://user-images.githubusercontent.com/24975800/43300132-0f44b9be-9190-11e8-9a05-b8ce778f28e3.png "Downloading cases")
 
 Built by law students from the Singapore Management University: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
 
-## Prerequisites
+## Prerequisites for compiling
 1. Download the latest chromedriver from http://chromedriver.chromium.org/downloads and place it in the project directory
 2. Make sure the dependencies in requirements.txt are installed and you have Python 3.6 or higher. The dependencies should be installed in a virtual environment e.g. using ```virtualenv```.
 3. Install PySide2==5.9 with ```python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.9/latest pyside2 --trusted-host download.qt.io```
