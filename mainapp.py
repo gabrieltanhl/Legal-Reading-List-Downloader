@@ -50,9 +50,6 @@ class ProgressBar(QtCore.QThread):
             self.download_status.emit('AUTH_FAIL')
             
         elif len(self.citation_list) > 0:
-            log_anon_usage(self.username, self.login_prefix,
-                           len(self.citation_list))
-            
             if self.backend == 'CHROME':
                 downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
                                                                      self.password,
@@ -125,7 +122,10 @@ class ProgressBar(QtCore.QThread):
                     '''
                     End of multi-threading code
                     '''
+                
                     self.finish_job(downloader)
+            
+            log_anon_usage(self.username, self.login_prefix,len(self.citation_list))
 
 
 class App(QtWidgets.QWidget):
