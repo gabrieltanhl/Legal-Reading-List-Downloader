@@ -8,12 +8,14 @@ import requests_lawnetsearch
 import threading
 from queue import Queue
 import pathlib
-
+from hashlib import sha256
+import requests
+import json
+from telemetry import log_anon_usage, authenticate_user
 
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
-    current_case = QtCore.Signal(str)
 
     def __init__(self,
                  USERNAME,
@@ -44,7 +46,13 @@ class ProgressBar(QtCore.QThread):
         subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
-        if len(self.citation_list) > 0:
+        if authenticate_user(self.username) is not True:
+            self.download_status.emit('AUTH_FAIL')
+            
+        elif len(self.citation_list) > 0:
+            log_anon_usage(self.username, self.login_prefix,
+                           len(self.citation_list))
+            
             if self.backend == 'CHROME':
                 downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
                                                                      self.password,
@@ -78,7 +86,7 @@ class ProgressBar(QtCore.QThread):
                     self.download_status.emit(login_status)
 
                 elif login_status == 'SUCCESS':
-                    self.download_status.emit('\nLogin success!')
+                    self.download_status.emit('Login success!')
 
                     '''
                     Code below launches a thread for every case download.
@@ -247,7 +255,7 @@ class App(QtWidgets.QWidget):
         # create columns and set sizing options
         self.tableWidget.setColumnCount(2)
         self.tableWidget.setHorizontalHeaderLabels(
-            ['Case Title', 'Download Status'])
+            ['Case Citation', 'Download Status'])
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
@@ -276,9 +284,11 @@ class App(QtWidgets.QWidget):
         toolbar_instructions.triggered.connect(self.show_instructions)
         toolbar_about.triggered.connect(self.show_about)
 
-    def show_popup(self, message):
+    def show_popup(self, header, body = None):
         popup = QtWidgets.QMessageBox()
-        popup.setText(message)
+        popup.setTextFormat(QtCore.Qt.RichText)
+        popup.setText(header)
+        popup.setInformativeText(body)
         popup.exec_()
 
     def save_reading_list_directory(self, reading_list_directory):
@@ -372,7 +382,15 @@ class App(QtWidgets.QWidget):
         else:
             current_case = None
 
-        if download_status == 'FAIL':
+        if download_status == 'AUTH_FAIL':
+            self.start_button.setDisabled(False)
+            self.progress.close()
+            self.progress.setValue(1)
+            self.status_label.clear()
+            self.show_popup("App is locked",
+                            "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!")
+        
+        elif download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
@@ -398,15 +416,15 @@ class App(QtWidgets.QWidget):
         popup = QtWidgets.QMessageBox()
         popup.setText('Instructions')
         popup.setInformativeText(
-            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Choose the cases you want to download\n\n(4) Click the download button.')
+            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Check or uncheck the cases you want to download\n\n(4) Click the download button.')
         popup.exec_()
 
     def show_about(self):
         popup = QtWidgets.QMessageBox()
+        popup.setTextFormat(QtCore.Qt.RichText)
         popup.setText('About')
-
         popup.setInformativeText(
-            "This app was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The app's source code and license are available at https://github.com/gabrieltanhl/Legal-Reading-List-Downloader.\n\nCases are downloaded from SAL LawNet and are subject to their terms and conditions (https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions).\n\n\nCopyright (C) 2018 Gabriel Tan, Ng Jun Xuan.\n\nThis program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.")
+            "This program was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The program's source code and license are available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>Github</a>.<br><br>We would like to thank the Singapore Academy of Law and LawNet <a href='https://www.lawnet.sg/'>(www.lawnet.sg)</a> for their support. The cases and materials downloaded using this program come from LawNet and are subject to their Terms and Conditions <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>(https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions)</a>.<br><br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan.<br><br>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <a href='https://www.gnu.org/licenses/'>(https://www.gnu.org/licenses/)</a>.")
         popup.exec_()
 
     def setStyles(self):
