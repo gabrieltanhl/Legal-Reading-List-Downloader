@@ -1,5 +1,5 @@
 import sys
-from PySide2 import QtCore, QtWidgets, QtGui
+from PySide2 import QtCore, QtWidgets
 from PySide2.QtCore import Slot, QSettings
 import parsedocs
 import subprocess
@@ -8,10 +8,8 @@ import requests_lawnetsearch
 import threading
 from queue import Queue
 import pathlib
-from hashlib import sha256
-import requests
-import json
 from telemetry import log_anon_usage, authenticate_user
+
 
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
@@ -48,13 +46,12 @@ class ProgressBar(QtCore.QThread):
     def run(self):
         if authenticate_user(self.username) is not True:
             self.download_status.emit('AUTH_FAIL')
-            
+
         elif len(self.citation_list) > 0:
             if self.backend == 'CHROME':
-                downloader = chrome_lawnetsearch.ChromeLawnetBrowser(self.username,
-                                                                     self.password,
-                                                                     self.login_prefix,
-                                                                     self.download_dir)
+                downloader = chrome_lawnetsearch.ChromeLawnetBrowser(
+                    self.username, self.password, self.login_prefix,
+                    self.download_dir)
                 login_status = downloader.login_lawnet()
                 if login_status == 'FAIL':
                     self.download_status.emit(login_status)
@@ -72,10 +69,9 @@ class ProgressBar(QtCore.QThread):
                     self.finish_job(downloader)
 
             elif self.backend == 'REQUESTS':
-                downloader = requests_lawnetsearch.RequestLawnetBrowser(self.username,
-                                                                        self.password,
-                                                                        self.login_prefix,
-                                                                        self.download_dir)
+                downloader = requests_lawnetsearch.RequestLawnetBrowser(
+                    self.username, self.password, self.login_prefix,
+                    self.download_dir)
 
                 login_status = downloader.login_lawnet()
 
@@ -84,7 +80,6 @@ class ProgressBar(QtCore.QThread):
 
                 elif login_status == 'SUCCESS':
                     self.download_status.emit('Login success!')
-
                     '''
                     Code below launches a thread for every case download.
                     Max # worker threads is 10. Each worker thread pulls a task
@@ -118,14 +113,14 @@ class ProgressBar(QtCore.QThread):
                         q.put(case)
 
                     q.join()
-
                     '''
                     End of multi-threading code
                     '''
-                
+
                     self.finish_job(downloader)
-            
-            log_anon_usage(self.username, self.login_prefix,len(self.citation_list))
+
+            log_anon_usage(self.username, self.login_prefix,
+                           len(self.citation_list))
 
 
 class App(QtWidgets.QWidget):
@@ -139,6 +134,7 @@ class App(QtWidgets.QWidget):
         self.download_directory = None
         self.reading_list_directory = None
         self.citation_list = []
+        self.stared_only = False
         # Temporary "app name" with no organisation until details are confirmed
         self.settings = QSettings("LegalList")
         self.initUI()
@@ -201,11 +197,16 @@ class App(QtWidgets.QWidget):
         if (self.settings.value('login_username')):
             self.usernamebox.setText(self.settings.value('login_username'))
         if (self.settings.value('login_usertype')):
-            self.lawnet_type.setCurrentIndex(self.settings.value('login_usertype'))
+            self.lawnet_type.setCurrentIndex(
+                self.settings.value('login_usertype'))
         if (self.settings.value('download_directory')):
             self.download_directory = self.settings.value('download_directory')
         if (self.settings.value('reading_list_directory')):
-            self.reading_list_directory = self.settings.value('reading_list_directory')
+            self.reading_list_directory = self.settings.value(
+                'reading_list_directory')
+        if (self.settings.value('stared_only')):
+            self.stared_only = self.settings.value('stared_only')
+            self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
@@ -227,12 +228,14 @@ class App(QtWidgets.QWidget):
         self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
         self.lawnet_type.currentIndexChanged.connect(self.save_usertype)
 
+        self.stared_checkbox = QtWidgets.QCheckBox('Star-ed Cases Only')
+        self.stared_checkbox.stateChanged.connect(self.update_stared_only)
+
         self.start_button = QtWidgets.QPushButton('Start Download', self)
         self.start_button.clicked.connect(self.start_download)
         self.start_button.setDisabled(True)
 
-        self.import_button = QtWidgets.QPushButton(
-            'Load Reading List', self)
+        self.import_button = QtWidgets.QPushButton('Load Reading List', self)
         self.import_button.clicked.connect(self.showDialog)
 
         self.directory_button = QtWidgets.QPushButton(
@@ -243,6 +246,7 @@ class App(QtWidgets.QWidget):
         self.left_layout.addWidget(self.usernamebox)
         self.left_layout.addWidget(self.passwordbox)
         self.left_layout.addWidget(self.lawnet_type)
+        self.left_layout.addWidget(self.stared_checkbox)
         self.left_layout.addStretch()
         self.left_layout.addWidget(self.import_button)
         self.left_layout.addWidget(self.directory_button)
@@ -284,7 +288,7 @@ class App(QtWidgets.QWidget):
         toolbar_instructions.triggered.connect(self.show_instructions)
         toolbar_about.triggered.connect(self.show_about)
 
-    def show_popup(self, header, body = None):
+    def show_popup(self, header, body=None):
         popup = QtWidgets.QMessageBox()
         popup.setTextFormat(QtCore.Qt.RichText)
         popup.setText(header)
@@ -292,10 +296,16 @@ class App(QtWidgets.QWidget):
         popup.exec_()
 
     def save_reading_list_directory(self, reading_list_directory):
-        self.settings.setValue('reading_list_directory', reading_list_directory)
+        self.settings.setValue('reading_list_directory',
+                               reading_list_directory)
 
     def save_download_directory(self, download_directory):
         self.settings.setValue('download_directory', download_directory)
+
+    @Slot()
+    def update_stared_only(self):
+        self.stared_only = self.stared_checkbox.isChecked()
+        self.settings.setValue('stared_only', self.stared_only)
 
     @Slot()
     def save_usertype(self, usertype_index):
@@ -309,12 +319,15 @@ class App(QtWidgets.QWidget):
     def showDialog(self):
         self.tableWidget.clearContents()
         self.tableWidget.setRowCount(0)
-        default_dir = str(pathlib.Path.home()) if self.reading_list_directory is None else self.reading_list_directory
+        default_dir = str(
+            pathlib.Path.home()
+        ) if self.reading_list_directory is None else self.reading_list_directory
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
                                                       default_dir)
         # with the case names, construct the table
         if fname[0]:
-            self.citation_list = parsedocs.start_extract(fname[0])
+            self.citation_list = parsedocs.start_extract(
+                fname[0], self.stared_only)
             for row_num, case_title in enumerate(self.citation_list):
                 self.construct_table_row_from_list(row_num, case_title)
 
@@ -335,7 +348,8 @@ class App(QtWidgets.QWidget):
 
     @Slot()
     def select_download_directory(self):
-        default_dir = str(pathlib.Path.home()) if self.download_directory is None else self.download_directory
+        default_dir = str(pathlib.Path.home(
+        )) if self.download_directory is None else self.download_directory
         download_dir = QtWidgets.QFileDialog.getExistingDirectory(
             self, 'Select the download directory', default_dir)
 
@@ -387,9 +401,11 @@ class App(QtWidgets.QWidget):
             self.progress.close()
             self.progress.setValue(1)
             self.status_label.clear()
-            self.show_popup("App is locked",
-                            "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!")
-        
+            self.show_popup(
+                "App is locked",
+                "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!"
+            )
+
         elif download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
@@ -416,7 +432,8 @@ class App(QtWidgets.QWidget):
         popup = QtWidgets.QMessageBox()
         popup.setText('Instructions')
         popup.setInformativeText(
-            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Check or uncheck the cases you want to download\n\n(4) Click the download button.')
+            'This is a tool that helps you download cases from Lawnet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Check or uncheck the cases you want to download\n\n(4) Click the download button.'
+        )
         popup.exec_()
 
     def show_about(self):
@@ -424,7 +441,8 @@ class App(QtWidgets.QWidget):
         popup.setTextFormat(QtCore.Qt.RichText)
         popup.setText('About')
         popup.setInformativeText(
-            "This program was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The program's source code and license are available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>Github</a>.<br><br>We would like to thank the Singapore Academy of Law and LawNet <a href='https://www.lawnet.sg/'>(www.lawnet.sg)</a> for their support. The cases and materials downloaded using this program come from LawNet and are subject to their Terms and Conditions <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>(https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions)</a>.<br><br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan.<br><br>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <a href='https://www.gnu.org/licenses/'>(https://www.gnu.org/licenses/)</a>.")
+            "This program was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The program's source code and license are available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>Github</a>.<br><br>We would like to thank the Singapore Academy of Law and LawNet <a href='https://www.lawnet.sg/'>(www.lawnet.sg)</a> for their support. The cases and materials downloaded using this program come from LawNet and are subject to their Terms and Conditions <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>(https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions)</a>.<br><br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan.<br><br>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <a href='https://www.gnu.org/licenses/'>(https://www.gnu.org/licenses/)</a>."
+        )
         popup.exec_()
 
     def setStyles(self):
