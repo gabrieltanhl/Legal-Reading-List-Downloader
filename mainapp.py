@@ -319,19 +319,29 @@ class App(QtWidgets.QWidget):
     def showDialog(self):
         self.tableWidget.clearContents()
         self.tableWidget.setRowCount(0)
+
         default_dir = str(
             pathlib.Path.home()
         ) if self.reading_list_directory is None else self.reading_list_directory
         fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
                                                       default_dir)
+
+        if (reading_list[0].split('.')[-1] == 'doc'):
+            popup = QtWidgets.QMessageBox()
+            popup.setText('Error: doc file not supported')
+            popup.setInformativeText('Please convert the doc file to docx or pdf.')
+            popup.exec_()
+            return
+
         # with the case names, construct the table
-        if fname[0]:
+        if reading_list[0]:
             self.citation_list = parsedocs.start_extract(
-                fname[0], self.stared_only)
+                reading_list[0], self.stared_only)
+
             for row_num, case_title in enumerate(self.citation_list):
                 self.construct_table_row_from_list(row_num, case_title)
 
-            reading_list_directory = str(pathlib.Path(fname[0]).parent)
+            reading_list_directory = str(pathlib.Path(reading_list[0]).parent)
             self.save_reading_list_directory(reading_list_directory)
 
         # after table is constructed, make it emit signals when
