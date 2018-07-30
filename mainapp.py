@@ -323,13 +323,14 @@ class App(QtWidgets.QWidget):
         default_dir = str(
             pathlib.Path.home()
         ) if self.reading_list_directory is None else self.reading_list_directory
-        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file',
-                                                      default_dir)
+        reading_list = QtWidgets.QFileDialog.getOpenFileName(
+            self, 'Open file', default_dir)
 
         if (reading_list[0].split('.')[-1] == 'doc'):
             popup = QtWidgets.QMessageBox()
             popup.setText('Error: doc file not supported')
-            popup.setInformativeText('Please convert the doc file to docx or pdf.')
+            popup.setInformativeText(
+                'Please convert the doc file to docx or pdf.')
             popup.exec_()
             return
 
