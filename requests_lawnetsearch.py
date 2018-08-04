@@ -11,16 +11,64 @@ LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet
 
 class RequestLawnetBrowser(LawnetBrowser):
     def login_lawnet(self):
-        print('Logging into LawNet')
-        self.driver = virtualbrowser.chrome()
-        download_status = super().login_lawnet()
-        login_cookies = self.driver.get_cookies()
+        with requests.Session() as s:
+            # Attempt to access lawnet with existing cookies
+            initiate_auth = s.get('https://login.libproxy.smu.edu.sg/login?auth=shibboleth&url=https://www.lawnet.sg/lawnet/web/lawnet/ip-access')
+            if initiate_auth.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+                return 'SUCCESS'
+            soup = BeautifulSoup(initiate_auth.text, 'lxml')
+            try:
+                saml_payload = {
+                    'SAMLRequest': soup.find('input', {'name': 'SAMLRequest'}).get('value'),
+                    'RelayState': soup.find('input', {'name': 'SAMLRequest'}).get('value')
+                }
+            except Exception:
+                # TODO Show a GUI failure
+                print('Could not find necessary SAML tokens')
+                return 'FAIL'
+            # Otherwise access the SMU login page
+            auth_response = s.post('https://login.smu.edu.sg/adfs/ls/', data=saml_payload)
+            if auth_response.url != 'https://login.smu.edu.sg/adfs/ls/':
+                return 'FAIL'
 
-        self.driver.quit()
-        print('Browser closed')
-
-        self.cookies = self.make_cookies_requests_compatible(login_cookies)
-        return download_status
+            headers = {
+                'Connection': 'keep-alive',
+                'Pragma': 'no-cache',
+                'Cache-Control': 'no-cache',
+                'Origin': 'https://login.smu.edu.sg',
+                'Upgrade-Insecure-Requests': '1',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+                'Referer': 'https://login.smu.edu.sg/adfs/ls/',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Accept-Language': 'en-US,en;q=0.9,zh-SG;q=0.8,zh;q=0.7',
+            }
+            login_payload = {
+                'UserName': f'{self.login_prefix}\\{self.username}',
+                'Password': self.password,
+                'AuthMethod': 'FormsAuthentication'
+            }
+            # Login to SMU SSO
+            login_response = s.post('https://login.smu.edu.sg/adfs/ls', data=login_payload, headers=headers)
+            soup = BeautifulSoup(login_response.text, 'lxml')
+            # Obtain SAML Response keys
+            try:
+                auth_payload = {
+                    'SAMLResponse': soup.find('input', {'name': 'SAMLResponse'}).get('value'),
+                    'RelayState': soup.find('input', {'name': 'RelayState'}).get('value')
+                }
+            except Exception:
+                return 'FAIL'
+            # Send SAML response keys
+            auth_response = s.post('https://login.libproxy.smu.edu.sg/Shibboleth.sso/SAML2/POST', data=auth_payload, headers=headers)
+            # Check login
+            test_response = s.get('https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access')
+            if test_response.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+                self.cookies = s.cookies
+                return 'SUCCESS'
+            else:
+                return 'FAIL'
 
     def make_cookies_requests_compatible(self, login_cookies):
         for cookie in login_cookies:
@@ -39,8 +87,7 @@ class RequestLawnetBrowser(LawnetBrowser):
 
         with requests.Session() as s:
             s.headers.update(self.HEADERS)
-            for cookie in self.cookies:
-                s.cookies.set(**cookie)
+            s.cookies = self.cookies
             # access search page
             response = s.get(self.SMU_LAWNET_PROXY_URL)
             soup = BeautifulSoup(response.text, 'lxml')
