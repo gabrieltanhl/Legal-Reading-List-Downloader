@@ -20,7 +20,7 @@ class RequestLawnetBrowser(LawnetBrowser):
             try:
                 saml_payload = {
                     'SAMLRequest': soup.find('input', {'name': 'SAMLRequest'}).get('value'),
-                    'RelayState': soup.find('input', {'name': 'SAMLRequest'}).get('value')
+                    'RelayState': soup.find('input', {'name': 'RelayState'}).get('value')
                 }
             except Exception:
                 # TODO Show a GUI failure
