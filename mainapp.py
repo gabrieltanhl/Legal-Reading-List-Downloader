@@ -3,8 +3,7 @@ from PySide2 import QtCore, QtWidgets
 from PySide2.QtCore import Slot, QSettings
 import parsedocs
 import subprocess
-import chrome_lawnetsearch
-import requests_lawnetsearch
+import lawnetsearch
 import threading
 from queue import Queue
 import pathlib
@@ -30,9 +29,7 @@ class ProgressBar(QtCore.QThread):
         self.backend = 'REQUESTS'
         self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
-        if lawnet_type == 0:
-            self.login_prefix = 'smustu'
-        elif lawnet_type == 1:
+        if lawnet_type == 1:
             self.login_prefix = 'smustf'
         else:
             self.login_prefix = 'smustu'
@@ -48,79 +45,55 @@ class ProgressBar(QtCore.QThread):
             self.download_status.emit('AUTH_FAIL')
 
         elif len(self.citation_list) > 0:
-            if self.backend == 'CHROME':
-                downloader = chrome_lawnetsearch.ChromeLawnetBrowser(
-                    self.username, self.password, self.login_prefix,
-                    self.download_dir)
-                login_status = downloader.login_lawnet()
-                if login_status == 'FAIL':
-                    self.download_status.emit(login_status)
+            downloader = lawnetsearch.LawnetBrowser(
+                self.username, self.password, self.login_prefix,
+                self.download_dir)
 
-                elif login_status == 'SUCCESS':
-                    self.download_status.emit('Login success!')
+            login_status = downloader.login_lawnet()
 
-                    for i in self.citation_list:
+            if login_status == 'FAIL':
+                self.download_status.emit(login_status)
+
+            elif login_status == 'SUCCESS':
+                self.download_status.emit('Login success!')
+                '''
+                Code below launches a thread for every case download.
+                Max # worker threads is 10. Each worker thread pulls a task
+                from the queue and executes it.
+                '''
+                search_lock = threading.Lock()
+                signal_lock = threading.Lock()
+
+                def threader():
+                    while True:
+                        case = q.get()
+                        signal = downloader.download_case(case, search_lock)
                         self.progress_counter += self.progress_per_case
-                        signal = downloader.download_case(i)
-                        self.download_status.emit(signal)
-                        self.progress_update.emit(self.progress_counter)
+                        signal_lock.acquire()
+                        print(case + "{" + signal)
+                        self.download_status.emit(case + "{" + signal)
+                        # self.current_case.emit(case)
+                        signal_lock.release()
+                        self.progress_update.emit(int(self.progress_counter))
+                        q.task_done()
 
-                    downloader.quit()
-                    self.finish_job(downloader)
+                q = Queue()
+                for x in range(10):  # spawn up to 10 threads
+                    t = threading.Thread(target=threader)
+                    t.daemon = True
+                    t.start()
 
-            elif self.backend == 'REQUESTS':
-                downloader = requests_lawnetsearch.RequestLawnetBrowser(
-                    self.username, self.password, self.login_prefix,
-                    self.download_dir)
+                for case in self.citation_list:  # putting cases into job pool
+                    q.put(case)
 
-                login_status = downloader.login_lawnet()
+                q.join()
+                '''
+                End of multi-threading code
+                '''
 
-                if login_status == 'FAIL':
-                    self.download_status.emit(login_status)
-
-                elif login_status == 'SUCCESS':
-                    self.download_status.emit('Login success!')
-                    '''
-                    Code below launches a thread for every case download.
-                    Max # worker threads is 10. Each worker thread pulls a task
-                    from the queue and executes it.
-                    '''
-                    search_lock = threading.Lock()
-                    signal_lock = threading.Lock()
-
-                    def threader():
-                        while True:
-                            case = q.get()
-                            signal = downloader.download_case(
-                                case, search_lock)
-                            self.progress_counter += self.progress_per_case
-                            signal_lock.acquire()
-                            print(case + "{" + signal)
-                            self.download_status.emit(case + "{" + signal)
-                            # self.current_case.emit(case)
-                            signal_lock.release()
-                            self.progress_update.emit(
-                                int(self.progress_counter))
-                            q.task_done()
-
-                    q = Queue()
-                    for x in range(10):  # spawn up to 10 threads
-                        t = threading.Thread(target=threader)
-                        t.daemon = True
-                        t.start()
-
-                    for case in self.citation_list:  # putting cases into job pool
-                        q.put(case)
-
-                    q.join()
-                    '''
-                    End of multi-threading code
-                    '''
-
-                    self.finish_job(downloader)
-
-            log_anon_usage(self.username, self.login_prefix,
-                           len(self.citation_list))
+                self.finish_job(downloader)
+                log_anon_usage(self.username, self.login_prefix,
+                               len(self.citation_list))
 
 
 class App(QtWidgets.QWidget):

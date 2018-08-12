@@ -1,15 +1,15 @@
-import virtualbrowser
 import re
 import os
 from bs4 import BeautifulSoup
-import pickle
 from xhtml2pdf import pisa
-from selenium.common.exceptions import NoSuchElementException
+import requests
 
 
 class LawnetBrowser():
     SMU_LAWNET_PROXY_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
     LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
+    LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
+    SEARCH_FORM_ACTION = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/result-page?p_p_id=legalresearchresultpage_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_action=basicSeachActionURL&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_searchType=0'
     HEADERS = {
         'User-Agent':
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
@@ -38,26 +38,132 @@ class LawnetBrowser():
         self.cookiepath = os.path.join(self.download_dir, '.lawnetcookie.pkl')
 
     def login_lawnet(self):
-        self.driver.get(self.SMU_LAWNET_PROXY_URL)
-
-        # if we do not end up at the lawnet searchpage
-        if self.driver.current_url != self.LAWNET_SEARCH_URL:
-            self.driver.find_element_by_xpath("/html/body/div/h3[3]/a").click()
-            username_field = self.driver.find_element_by_id("userNameInput")
-            password_field = self.driver.find_element_by_id("passwordInput")
-            print(f'{self.login_prefix}\\{self.username}')
-            username_field.send_keys(f'{self.login_prefix}\\{self.username}')
-            password_field.send_keys(self.password)
-            self.driver.find_element_by_xpath(
-                "//*[@id=\"submitButton\"]").click()
-
-            try:
-                login_message = self.driver.find_element_by_id(
-                    "errorText").text
-                if 'Incorrect user ID or password' in login_message:
-                    return 'FAIL'
-            except NoSuchElementException:
+        with requests.Session() as s:
+            # Attempt to access lawnet with existing cookies
+            initiate_auth = s.get(
+                'https://login.libproxy.smu.edu.sg/login?auth=shibboleth&url=https://www.lawnet.sg/lawnet/web/lawnet/ip-access'
+            )
+            if initiate_auth.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
                 return 'SUCCESS'
+            soup = BeautifulSoup(initiate_auth.text, 'lxml')
+            try:
+                saml_payload = {
+                    'SAMLRequest':
+                    soup.find('input', {
+                        'name': 'SAMLRequest'
+                    }).get('value'),
+                    'RelayState':
+                    soup.find('input', {
+                        'name': 'RelayState'
+                    }).get('value')
+                }
+            except Exception:
+                # TODO Show a GUI failure
+                print('Could not find necessary SAML tokens')
+                return 'FAIL'
+            # Otherwise access the SMU login page
+            auth_response = s.post(
+                'https://login.smu.edu.sg/adfs/ls/', data=saml_payload)
+            if auth_response.url != 'https://login.smu.edu.sg/adfs/ls/':
+                return 'FAIL'
+            login_payload = {
+                'UserName': f'{self.login_prefix}\\{self.username}',
+                'Password': self.password,
+                'AuthMethod': 'FormsAuthentication'
+            }
+            # Login to SMU SSO
+            login_response = s.post(
+                'https://login.smu.edu.sg/adfs/ls',
+                data=login_payload)
+            soup = BeautifulSoup(login_response.text, 'lxml')
+            # Obtain SAML Response keys
+            try:
+                auth_payload = {
+                    'SAMLResponse':
+                    soup.find('input', {
+                        'name': 'SAMLResponse'
+                    }).get('value'),
+                    'RelayState':
+                    soup.find('input', {
+                        'name': 'RelayState'
+                    }).get('value')
+                }
+            except Exception:
+                return 'FAIL'
+            # Send SAML response keys
+            auth_response = s.post(
+                'https://login.libproxy.smu.edu.sg/Shibboleth.sso/SAML2/POST',
+                data=auth_payload)
+            # Check login
+            test_response = s.get(
+                'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
+            )
+            if test_response.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+                self.cookies = s.cookies
+                return 'SUCCESS'
+            else:
+                return 'FAIL'
+
+    def download_case(self, case_citation, lock=None):
+        print('Downloading case', case_citation)
+        categories = ['1', '2', '4', '5', '6', '7', '8', '27']
+
+        with requests.Session() as s:
+            s.headers.update(self.HEADERS)
+            s.cookies = self.cookies
+            # generate search payload to POST
+            # current category and grouping are just extracted
+            # from Chrome
+            search_payload = {
+                'grouping': '1',
+                'category': categories,
+                'basicSearchKey': case_citation
+            }
+            if lock:
+                lock.acquire(
+                )  # only 1 thread can post the search request at any time
+            search_response = s.post(
+                self.SEARCH_FORM_ACTION, data=search_payload)
+            if lock:
+                lock.release()  # lock is released by the thread
+
+            cases_found = self.get_case_list_html(search_response.text)
+            # without javascript, there is a function call with a
+            # "resource id" captured within the "onclick" action
+            # of the link
+            # data structure: tuple - (case url, case text)
+            cases_onclick = [(case['onclick'], case.get_text())
+                             for case in cases_found]
+
+            case_index = self.get_case_index(cases_onclick, case_citation)
+
+            if case_index is None:
+                return ('\nUnable to find ' + case_citation + '.')
+
+            doc_id = re.search(r"'(.*)'",
+                               cases_onclick[case_index][0]).group(1)
+            case_url = self.LAWNET_CASE_URL + doc_id
+
+            # get the page
+            case_response = s.get(case_url)
+            case_soup = BeautifulSoup(case_response.text, 'lxml')
+
+            for link in case_soup.find_all('a'):
+                if 'PDF' in link.text and link['href'] != '#':
+                    pdf_url = link['href']
+                    break
+                else:
+                    pdf_url = False
+
+            if pdf_url:
+                pdf_file = s.get(pdf_url)
+                return self.save_pdf(case_citation, pdf_file.content)
+            else:
+                try:
+                    return self.save_html2pdf(case_citation,
+                                              case_response.text)
+                except Exception:
+                    return self.save_html(case_citation, case_response.text)
 
     def get_case_list_html(self, results_html):
         search_soup = BeautifulSoup(results_html, 'lxml')
@@ -86,7 +192,9 @@ class LawnetBrowser():
         with open(case_path, 'w', encoding='utf-8') as case_file:
             case_file.write(case_data)
 
-        return (f'\nPDF not available for {case_citation}. HTML version downloaded.')
+        return (
+            f'\nPDF not available for {case_citation}. HTML version downloaded.'
+        )
 
     def save_html2pdf(self, case_citation, case_data):
         def cleanup_html(source_html):
