@@ -51,18 +51,16 @@ def start_extract(filepath, stared=False):
         return False
 
     if stared:
-        citation_pattern = re.compile(
-            r'\*[^\[\]]*(\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()WLRMLJCh]+\s\d+)|\*[^\[\]]*(\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+)'
+        citation_pattern = re.compile(r'\*[^\[\]]*([[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[LR]+\s\d+\s[EqCP]+\s+\d+)|\*[^\[\]]*([[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[SLR()WMJChAFQBtra]+\s\d+)|\*[^\[\]]*(\[[1-2]\d{3}(?:-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+)'
         )
     else:
-        citation_pattern = re.compile(
-            r'\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[\d\s]*[SLR()WLRMLJCh]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+'
+        citation_pattern = re.compile(r'[[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[LR]+\s\d+\s[EqCP]+\s+\d+|[[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[SLR()WMJChAFQBtra]+\s\d+|\[[1-2]\d{3}(?:-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+'
         )
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
     if stared:
         citation_list = [
-            item[0] for item in itertools.chain.from_iterable(citation_list)
+            item[1] for item in itertools.chain.from_iterable(citation_list)
         ]
     else:
         citation_list = itertools.chain.from_iterable(citation_list)
