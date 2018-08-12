@@ -270,6 +270,7 @@ class App(QtWidgets.QWidget):
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
+        checkbox.setFlags(~QtCore.Qt.ItemIsEditable)
 
         downloadstatus = QtWidgets.QTableWidgetItem("-")
         downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
