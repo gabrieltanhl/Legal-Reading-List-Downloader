@@ -43,10 +43,6 @@ class TestRequestsBrowser:
         login_status = self.browser.login_lawnet()
         assert login_status == 'SUCCESS'
 
-        for cookie in self.browser.cookies:
-            assert 'expiry' not in cookie
-            assert 'httpOnly' not in cookie
-
     @pytest.mark.vcr()
     @pytest.mark.parametrize(
         'test_citation, expected_ext, expected_sha_file',
