@@ -15,16 +15,23 @@ class LawnetBrowser():
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
     }
 
-    def __init__(self, username, password, login_prefix, download_dir=None):
+    def __init__(self):
+        self.cookies = None
+        self.download_dir = None
+
+    def update_download_info(
+            self,
+            username,
+            password,
+            login_prefix,
+            citation_list,
+            download_dir=None,
+    ):
         self.username = username
         self.password = password
-        self.driver = None
-        self.cookies = None
-        self.cookiepath = None
-        self.download_dir = None
-        self.set_download_directory(download_dir)
         self.login_prefix = login_prefix
-        print(login_prefix)
+        self.set_download_directory(download_dir)
+        self.citation_list = citation_list
 
     def set_download_directory(self, download_dir):
         if download_dir:
@@ -35,11 +42,12 @@ class LawnetBrowser():
 
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
-        self.cookiepath = os.path.join(self.download_dir, '.lawnetcookie.pkl')
 
     def login_lawnet(self):
         with requests.Session() as s:
-            # Attempt to access lawnet with existing cookies
+            if self.cookies:
+                s.cookies = self.cookies
+            # Test existing cookies
             initiate_auth = s.get(
                 'https://login.libproxy.smu.edu.sg/login?auth=shibboleth&url=https://www.lawnet.sg/lawnet/web/lawnet/ip-access'
             )
@@ -73,8 +81,7 @@ class LawnetBrowser():
             }
             # Login to SMU SSO
             login_response = s.post(
-                'https://login.smu.edu.sg/adfs/ls',
-                data=login_payload)
+                'https://login.smu.edu.sg/adfs/ls', data=login_payload)
             soup = BeautifulSoup(login_response.text, 'lxml')
             # Obtain SAML Response keys
             try:
@@ -120,8 +127,7 @@ class LawnetBrowser():
                 'basicSearchKey': case_citation
             }
             if lock:
-                lock.acquire(
-                )  # only 1 thread can post the search request at any time
+                lock.acquire()  # only 1 thread can post the search request
             search_response = s.post(
                 self.SEARCH_FORM_ACTION, data=search_payload)
             if lock:

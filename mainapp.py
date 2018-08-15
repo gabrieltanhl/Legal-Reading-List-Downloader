@@ -14,25 +14,12 @@ class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
 
-    def __init__(self,
-                 USERNAME,
-                 PASSWORD,
-                 CITATION_LIST,
-                 lawnet_type,
-                 DOWNLOAD_DIR=None,
-                 parent=None):
+    def __init__(self, downloader, parent=None):
         QtCore.QThread.__init__(self)
-        self.username = USERNAME
-        self.password = PASSWORD
-        self.citation_list = CITATION_LIST
-        self.download_dir = DOWNLOAD_DIR
-        self.backend = 'REQUESTS'
+        self.downloader = downloader
+        self.citation_list = downloader.citation_list
         self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
-        if lawnet_type == 1:
-            self.login_prefix = 'smustf'
-        else:
-            self.login_prefix = 'smustu'
 
     def finish_job(self, downloader):
         if self.progress_counter < 100:
@@ -41,15 +28,11 @@ class ProgressBar(QtCore.QThread):
         subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
-        if authenticate_user(self.username) is not True:
+        if authenticate_user(self.downloader.username) is not True:
             self.download_status.emit('AUTH_FAIL')
 
         elif len(self.citation_list) > 0:
-            downloader = lawnetsearch.LawnetBrowser(
-                self.username, self.password, self.login_prefix,
-                self.download_dir)
-
-            login_status = downloader.login_lawnet()
+            login_status = self.downloader.login_lawnet()
 
             if login_status == 'FAIL':
                 self.download_status.emit(login_status)
@@ -67,12 +50,11 @@ class ProgressBar(QtCore.QThread):
                 def threader():
                     while True:
                         case = q.get()
-                        signal = downloader.download_case(case, search_lock)
+                        signal = self.downloader.download_case(
+                            case, search_lock)
                         self.progress_counter += self.progress_per_case
                         signal_lock.acquire()
-                        print(case + "{" + signal)
                         self.download_status.emit(case + "{" + signal)
-                        # self.current_case.emit(case)
                         signal_lock.release()
                         self.progress_update.emit(int(self.progress_counter))
                         q.task_done()
@@ -91,8 +73,9 @@ class ProgressBar(QtCore.QThread):
                 End of multi-threading code
                 '''
 
-                self.finish_job(downloader)
-                log_anon_usage(self.username, self.login_prefix,
+                self.finish_job(self.downloader)
+                log_anon_usage(self.downloader.username,
+                               self.downloader.login_prefix,
                                len(self.citation_list))
 
 
@@ -112,6 +95,7 @@ class App(QtWidgets.QWidget):
         self.settings = QSettings("LegalList")
         self.initUI()
         self.load_settings()
+        self.downloader = lawnetsearch.LawnetBrowser()
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -344,11 +328,13 @@ class App(QtWidgets.QWidget):
 
     def start_download(self):
         if len(self.citation_list) > 0:
-            self.calc = ProgressBar(self.usernamebox.text(),
-                                    self.passwordbox.text(),
-                                    self.citation_list,
-                                    self.lawnet_type.currentIndex(),
-                                    self.download_directory)
+            usertype = 'smustf' if self.lawnet_type.currentIndex(
+            ) == 1 else 'smustu'
+            self.downloader.update_download_info(self.usernamebox.text(),
+                                                 self.passwordbox.text(),
+                                                 usertype, self.citation_list,
+                                                 self.download_directory)
+            self.calc = ProgressBar(self.downloader)
 
             self.calc.start()
             # connecting signal emitters to UI
