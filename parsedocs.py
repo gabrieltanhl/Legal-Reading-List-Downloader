@@ -41,20 +41,15 @@ def start_extract(filepath, stared=False):
         full_text = extract_pdf(filepath)
 
     def check_lawnet_compatibility(case_citation):
-        lawnet_casetypes = ['SLR', 'SGCA', 'SGHC', 'WLR', 'MLJ', 'Ch']
-        # extra_casetypes = ['SGDC', 'AC', ' UKSC', 'Ch', 'WLR', 'QB']
+        lawnet_casetypes = ['SLR', 'SGCA', 'SGHC', 'WLR', 'MLJ', 'Ch', 'SGDC', 'AC', ' UKSC', 'Ch', 'WLR', 'QB']
         for casetype in lawnet_casetypes:
-            if casetype in case_citation:
-                return True
-            else:
-                pass
-        return False
+            return True
 
     if stared:
         citation_pattern = re.compile(r'\*[^\[\]]*([[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[LR]+\s\d+\s[EqCP]+\s+\d+)|\*[^\[\]]*([[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[SLR()WMJChAFQBtra]+\s\d+)|\*[^\[\]]*(\[[1-2]\d{3}(?:-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+)'
         )
     else:
-        citation_pattern = re.compile(r'[[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[LR]+\s\d+\s[EqCP]+\s+\d+|[[(][1-2]\d{3}(?:-[1-2]\d{3})?[\])]\s[\d\s]*[SLR()WMJChAFQBtra]+\s\d+|\[[1-2]\d{3}(?:-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+'
+        citation_pattern = re.compile(r'[\[\(][1-2]\d{3}(?:\-[1-2]\d{3})?[\]\)]\s[\d\s]*[LR]+\s\d+\s[EqCP]+\s+\d+|[\[\(][1-2]\d{3}(?:\-[1-2]\d{3})?[\]\)]\s[\d\s]*[SLR()WLRMLJChACFQBStra]+\s\d+|\[[1-2]\d{3}(?:\-[1-2]\d{3})?\]\s[A-Za-z()]+\s\d+'
         )
 
     citation_list = [re.findall(citation_pattern, i) for i in full_text]
@@ -69,6 +64,5 @@ def start_extract(filepath, stared=False):
 
     citation_list = [
         ' '.join(citation.split()) for citation in citation_list
-        if check_lawnet_compatibility(citation)
     ]
     return citation_list
