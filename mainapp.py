@@ -99,7 +99,7 @@ class ProgressBar(QtCore.QThread):
 class App(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.title = 'Reading List Downloader'
+        self.title = 'LawNet Reading List Downloader'
         self.left = 600
         self.top = 400
         self.width = 800
@@ -177,8 +177,8 @@ class App(QtWidgets.QWidget):
         if (self.settings.value('reading_list_directory')):
             self.reading_list_directory = self.settings.value(
                 'reading_list_directory')
-        if (self.settings.value('stared_only')):
-            self.stared_only = self.settings.value('stared_only')
+        if (self.settings.value('stared_only') == 'true'):
+            self.stared_only = True
             self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
@@ -188,7 +188,7 @@ class App(QtWidgets.QWidget):
 
     def createLeftColumn(self):
         self.usernamebox = QtWidgets.QLineEdit()
-        self.usernamebox.setPlaceholderText(' Username e.g. johnlee.2014')
+        self.usernamebox.setPlaceholderText(' Username')
         self.usernamebox.textChanged.connect(self.disableButton)
         self.usernamebox.textChanged.connect(self.save_username)
 
@@ -198,7 +198,7 @@ class App(QtWidgets.QWidget):
         self.passwordbox.textChanged.connect(self.disableButton)
 
         self.lawnet_type = QtWidgets.QComboBox()
-        self.lawnet_type.addItems(['SMU (student)', 'SMU (faculty)'])
+        self.lawnet_type.addItems(['Student', 'Faculty'])
         self.lawnet_type.currentIndexChanged.connect(self.save_usertype)
 
         self.stared_checkbox = QtWidgets.QCheckBox('Star-ed Cases Only')
@@ -435,10 +435,10 @@ class App(QtWidgets.QWidget):
         QToolBar {
             border-bottom: 1px solid #808d97;
             border-top: 1px solid #808d97;
-            background-color: #3a4f5e
+            background-color: #4a166e;
             }
         QToolButton {
-            background:#3a4f5e; border: 1px solid #585858;
+            background:#4a166e; border: 1px solid #585858;
             border-style: outset;
             border-radius: 4px;
             min-width: 5em;
