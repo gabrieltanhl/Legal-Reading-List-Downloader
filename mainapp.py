@@ -154,8 +154,8 @@ class App(QtWidgets.QWidget):
         if (self.settings.value('reading_list_directory')):
             self.reading_list_directory = self.settings.value(
                 'reading_list_directory')
-        if (self.settings.value('stared_only') == 'true'):
-            self.stared_only = True
+        if self.settings.value('stared_only'):
+            self.stared_only = bool(self.settings.value('stared_only'))
             self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
