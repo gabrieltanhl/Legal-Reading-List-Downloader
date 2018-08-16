@@ -28,49 +28,48 @@ class ProgressBar(QtCore.QThread):
         subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
-        if len(self.citation_list) > 0:
-            login_status = self.downloader.login_lawnet()
+        login_status = self.downloader.login_lawnet()
 
-            if login_status == 'FAIL':
-                self.download_status.emit(login_status)
+        if login_status == 'FAIL':
+            self.download_status.emit(login_status)
 
-            elif login_status == 'SUCCESS':
-                self.download_status.emit('Login success!')
-                '''
-                Code below launches a thread for every case download.
-                Max # worker threads is 10. Each worker thread pulls a task
-                from the queue and executes it.
-                '''
-                search_lock = threading.Lock()
-                signal_lock = threading.Lock()
+        elif login_status == 'SUCCESS':
+            self.download_status.emit('Login success!')
+            '''
+            Code below launches a thread for every case download.
+            Max # worker threads is 10. Each worker thread pulls a task
+            from the queue and executes it.
+            '''
+            search_lock = threading.Lock()
+            signal_lock = threading.Lock()
 
-                def threader():
-                    while True:
-                        case = q.get()
-                        signal = self.downloader.download_case(
-                            case, search_lock)
-                        self.progress_counter += self.progress_per_case
-                        signal_lock.acquire()
-                        self.download_status.emit(case + "{" + signal)
-                        signal_lock.release()
-                        self.progress_update.emit(int(self.progress_counter))
-                        q.task_done()
+            def threader():
+                while True:
+                    case = q.get()
+                    signal = self.downloader.download_case(
+                        case, search_lock)
+                    self.progress_counter += self.progress_per_case
+                    signal_lock.acquire()
+                    self.download_status.emit(case + "{" + signal)
+                    signal_lock.release()
+                    self.progress_update.emit(int(self.progress_counter))
+                    q.task_done()
 
-                q = Queue()
-                for x in range(10):  # spawn up to 10 threads
-                    t = threading.Thread(target=threader)
-                    t.daemon = True
-                    t.start()
+            q = Queue()
+            for x in range(10):  # spawn up to 10 threads
+                t = threading.Thread(target=threader)
+                t.daemon = True
+                t.start()
 
-                for case in self.citation_list:  # putting cases into job pool
-                    q.put(case)
+            for case in self.citation_list:  # putting cases into job pool
+                q.put(case)
 
-                q.join()
-                '''
-                End of multi-threading code
-                '''
+            q.join()
+            '''
+            End of multi-threading code
+            '''
 
-                self.finish_job(self.downloader)
+            self.finish_job(self.downloader)
 
 class App(QtWidgets.QWidget):
     def __init__(self):
