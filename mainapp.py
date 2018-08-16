@@ -7,7 +7,6 @@ import lawnetsearch
 import threading
 from queue import Queue
 import pathlib
-from telemetry import log_anon_usage, authenticate_user
 import datetime
 
 
@@ -29,10 +28,7 @@ class ProgressBar(QtCore.QThread):
         subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
-        if authenticate_user(self.downloader.username) is not True:
-            self.download_status.emit('AUTH_FAIL')
-
-        elif len(self.citation_list) > 0:
+        if len(self.citation_list) > 0:
             login_status = self.downloader.login_lawnet()
 
             if login_status == 'FAIL':
@@ -75,10 +71,6 @@ class ProgressBar(QtCore.QThread):
                 '''
 
                 self.finish_job(self.downloader)
-                log_anon_usage(self.downloader.username,
-                               self.downloader.login_prefix,
-                               len(self.citation_list))
-
 
 class App(QtWidgets.QWidget):
     def __init__(self):
