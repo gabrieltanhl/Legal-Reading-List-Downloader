@@ -8,6 +8,7 @@ import threading
 from queue import Queue
 import pathlib
 from telemetry import log_anon_usage, authenticate_user
+import datetime
 
 
 class ProgressBar(QtCore.QThread):
@@ -96,6 +97,7 @@ class App(QtWidgets.QWidget):
         self.initUI()
         self.load_settings()
         self.downloader = lawnetsearch.LawnetBrowser()
+        self.successful_downloads = 0
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -327,34 +329,40 @@ class App(QtWidgets.QWidget):
             self.save_download_directory(download_dir)
 
     def start_download(self):
-        if len(self.citation_list) > 0:
-            usertype = 'smustf' if self.lawnet_type.currentIndex(
-            ) == 1 else 'smustu'
-            self.downloader.update_download_info(self.usernamebox.text(),
-                                                 self.passwordbox.text(),
-                                                 usertype, self.citation_list,
-                                                 self.download_directory)
-            self.calc = ProgressBar(self.downloader)
+        if self.download_num() <= 150:
+            if len(self.citation_list) > 0:
+                self.successful_downloads = 0
+                usertype = 'smustf' if self.lawnet_type.currentIndex(
+                ) == 1 else 'smustu'
+                self.downloader.update_download_info(self.usernamebox.text(),
+                                                    self.passwordbox.text(),
+                                                    usertype, self.citation_list,
+                                                    self.download_directory)
+                self.calc = ProgressBar(self.downloader)
 
-            self.calc.start()
-            # connecting signal emitters to UI
-            self.calc.progress_update.connect(self.update_progress_bar)
-            self.calc.download_status.connect(self.update_download_status)
-            # self.calc.current_case.connect(self.update_download_status_column)
+                self.calc.start()
+                # connecting signal emitters to UI
+                self.calc.progress_update.connect(self.update_progress_bar)
+                self.calc.download_status.connect(self.update_download_status)
+                # self.calc.current_case.connect(self.update_download_status_column)
 
-            self.start_button.setDisabled(True)
-            self.progress.show()
-            self.status_label.clear()
-            self.status_label.setText('Logging in...')
+                self.start_button.setDisabled(True)
+                self.progress.show()
+                self.status_label.clear()
+                self.status_label.setText('Logging in...')
+            else:
+                self.status_label.clear()
+                self.status_label.setText(
+                    'No cases detected. Please load a reading list.')
         else:
             self.status_label.clear()
-            self.status_label.setText(
-                'No cases detected. Please load a reading list.')
+            self.status_label.setText('You have exceeded the 150 downloads limit today. This limit will be reset after midnight.')
 
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
 
         if progress_counter == 100 and self.progress.value != 5:
+            self.update_download_num(self.successful_downloads)
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
@@ -391,6 +399,9 @@ class App(QtWidgets.QWidget):
 
             if current_case:
                 num_rows = self.tableWidget.rowCount()
+                # Thread lock should make this safe
+                if 'downloaded' in download_status:
+                    self.successful_downloads += 1
                 for row in range(num_rows):
                     table_item = self.tableWidget.item(row, 0)
                     case_citation = str(table_item.text())
@@ -398,6 +409,27 @@ class App(QtWidgets.QWidget):
                     if case_citation == current_case:
                         case_status = self.tableWidget.item(row, 1)
                         case_status.setText(download_status)
+
+    def download_num(self):
+        today_date = datetime.date.today()
+        if self.settings.value('latest_date'):
+            settings_date = datetime.datetime.strptime(self.settings.value('latest_date'), '%d-%m-%Y').date()
+        else:
+            self.settings.setValue('latest_date', today_date.strftime('%d-%m-%Y'))
+            self.settings.setValue('downloads', 0)
+            return 0
+
+        if settings_date != today_date:
+            self.settings.setValue('latest_date', today_date.strftime('%d-%m-%Y'))
+            self.settings.setValue('downloads', 0)
+            return 0
+        else:
+            return self.settings.value('downloads')
+
+    def update_download_num(self, downloads):
+        new_downloads = int(self.settings.value('downloads')) + downloads
+        self.settings.setValue('downloads', new_downloads)
+        self.settings.sync()
 
     def show_instructions(self):
         popup = QtWidgets.QMessageBox()
