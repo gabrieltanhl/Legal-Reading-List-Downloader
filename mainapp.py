@@ -144,11 +144,6 @@ class App(QtWidgets.QWidget):
                     self.citation_list.append(case_citation)
 
     def load_settings(self):
-        if (self.settings.value('login_username')):
-            self.usernamebox.setText(self.settings.value('login_username'))
-        if (self.settings.value('login_usertype')):
-            self.lawnet_type.setCurrentIndex(
-                self.settings.value('login_usertype'))
         if (self.settings.value('download_directory')):
             self.download_directory = self.settings.value('download_directory')
         if (self.settings.value('reading_list_directory')):
@@ -156,7 +151,6 @@ class App(QtWidgets.QWidget):
                 'reading_list_directory')
         if self.settings.value('stared_only'):
             self.stared_only = bool(self.settings.value('stared_only'))
-            self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
@@ -166,6 +160,8 @@ class App(QtWidgets.QWidget):
     def createLeftColumn(self):
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText(' Username')
+        if self.settings.value('login_username'):
+            self.usernamebox.setText(self.settings.value('login_username'))
         self.usernamebox.textChanged.connect(self.disableButton)
         self.usernamebox.textChanged.connect(self.save_username)
 
@@ -176,9 +172,13 @@ class App(QtWidgets.QWidget):
 
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['Student', 'Faculty'])
+        if (self.settings.value('login_usertype')):
+            self.lawnet_type.setCurrentIndex(
+                self.settings.value('login_usertype'))
         self.lawnet_type.currentIndexChanged.connect(self.save_usertype)
 
         self.stared_checkbox = QtWidgets.QCheckBox('Star-ed Cases Only')
+        self.stared_checkbox.setChecked(self.stared_only)
         self.stared_checkbox.stateChanged.connect(self.update_stared_only)
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
@@ -347,7 +347,7 @@ class App(QtWidgets.QWidget):
                     'No cases detected. Please load a reading list.')
         else:
             self.status_label.clear()
-            self.status_label.setText('You have exceeded the 150 downloads limit today. This limit will be reset after midnight.')
+            self.status_label.setText('Daily Download Limit Exceeded')
 
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
@@ -393,13 +393,9 @@ class App(QtWidgets.QWidget):
                 # Thread lock should make this safe
                 if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                for row in range(num_rows):
-                    table_item = self.tableWidget.item(row, 0)
-                    case_citation = str(table_item.text())
-
-                    if case_citation == current_case:
-                        case_status = self.tableWidget.item(row, 1)
-                        case_status.setText(download_status)
+                    case_row = self.citation_list.index(current_case)
+                    case_status_table_row = self.tableWidget.item(case_row, 1)
+                    case_status_table_row.setText(download_status)
 
     def download_num(self):
         today_date = datetime.date.today()
