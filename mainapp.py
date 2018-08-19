@@ -347,7 +347,7 @@ class App(QtWidgets.QWidget):
                     'No cases detected. Please load a reading list.')
         else:
             self.status_label.clear()
-            self.status_label.setText('You have exceeded the 150 downloads limit today. This limit will be reset after midnight.')
+            self.status_label.setText('Daily Download Limit Exceeded')
 
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
@@ -393,13 +393,9 @@ class App(QtWidgets.QWidget):
                 # Thread lock should make this safe
                 if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                for row in range(num_rows):
-                    table_item = self.tableWidget.item(row, 0)
-                    case_citation = str(table_item.text())
-
-                    if case_citation == current_case:
-                        case_status = self.tableWidget.item(row, 1)
-                        case_status.setText(download_status)
+                    case_row = self.citation_list.index(current_case)
+                    case_status_table_row = self.tableWidget.item(case_row, 1)
+                    case_status_table_row.setText(download_status)
 
     def download_num(self):
         today_date = datetime.date.today()
