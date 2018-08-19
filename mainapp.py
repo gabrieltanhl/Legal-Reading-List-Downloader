@@ -144,11 +144,6 @@ class App(QtWidgets.QWidget):
                     self.citation_list.append(case_citation)
 
     def load_settings(self):
-        if (self.settings.value('login_username')):
-            self.usernamebox.setText(self.settings.value('login_username'))
-        if (self.settings.value('login_usertype')):
-            self.lawnet_type.setCurrentIndex(
-                self.settings.value('login_usertype'))
         if (self.settings.value('download_directory')):
             self.download_directory = self.settings.value('download_directory')
         if (self.settings.value('reading_list_directory')):
@@ -156,7 +151,6 @@ class App(QtWidgets.QWidget):
                 'reading_list_directory')
         if self.settings.value('stared_only'):
             self.stared_only = bool(self.settings.value('stared_only'))
-            self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
         self.progress = QtWidgets.QProgressBar()
@@ -166,6 +160,8 @@ class App(QtWidgets.QWidget):
     def createLeftColumn(self):
         self.usernamebox = QtWidgets.QLineEdit()
         self.usernamebox.setPlaceholderText(' Username')
+        if self.settings.value('login_username'):
+            self.usernamebox.setText(self.settings.value('login_username'))
         self.usernamebox.textChanged.connect(self.disableButton)
         self.usernamebox.textChanged.connect(self.save_username)
 
@@ -176,9 +172,13 @@ class App(QtWidgets.QWidget):
 
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['Student', 'Faculty'])
+        if (self.settings.value('login_usertype')):
+            self.lawnet_type.setCurrentIndex(
+                self.settings.value('login_usertype'))
         self.lawnet_type.currentIndexChanged.connect(self.save_usertype)
 
         self.stared_checkbox = QtWidgets.QCheckBox('Star-ed Cases Only')
+        self.stared_checkbox.setChecked(self.stared_only)
         self.stared_checkbox.stateChanged.connect(self.update_stared_only)
 
         self.start_button = QtWidgets.QPushButton('Start Download', self)
