@@ -85,8 +85,8 @@ class App(QtWidgets.QWidget):
         self.stared_only = False
         # Temporary "app name" with no organisation until details are confirmed
         self.settings = QSettings("LegalList")
-        self.initUI()
         self.load_settings()
+        self.initUI()
         self.downloader = lawnetsearch.LawnetBrowser()
         self.successful_downloads = 0
 
