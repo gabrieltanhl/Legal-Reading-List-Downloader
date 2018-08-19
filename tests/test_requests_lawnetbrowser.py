@@ -1,8 +1,9 @@
-from requests_lawnetsearch import RequestLawnetBrowser
+from lawnetsearch import LawnetBrowser
 from credentials import login, false_login
 from sha_helpers import generate_sha_hash_helper, read_sha_from_file_helper
 import pytest
 import os
+import threading
 
 BASE_DIR = os.getcwd()
 SHA_DIR = os.path.join(BASE_DIR, 'tests/sha/')
@@ -12,8 +13,7 @@ DOWNLOAD_DIR = os.path.join(BASE_DIR, 'tests/downloads/')
 @pytest.fixture(scope='class')
 def browser(request):
 
-    browser = RequestLawnetBrowser(
-        login['username'], login['password'], login['user_type'], DOWNLOAD_DIR)
+    browser = LawnetBrowser()
 
     request.cls.browser = browser
     yield
@@ -23,23 +23,19 @@ def browser(request):
 class TestRequestsBrowser:
     # @classmethod
     # def setup_class(self):
-    #     self.browser = RequestLawnetBrowser(
+    #     self.browser = LawnetBrowser(
     #         login['username'], login['password'], DOWNLOAD_DIR)
 
-    def test_correct_init_values(self):
-        assert self.browser.username == login['username']
-        assert self.browser.password == login['password']
-        assert self.browser.download_dir == DOWNLOAD_DIR
-
     def test_incorrect_login(self):
-        self.browser.username = false_login['username']
-        self.browser.password = false_login['password']
+        self.browser.update_download_info(false_login['username'],
+                                          false_login['password'], 'smustu',
+                                          [], DOWNLOAD_DIR)
         login_status = self.browser.login_lawnet()
         assert login_status == 'FAIL'
 
     def test_correct_login(self):
-        self.browser.username = login['username']
-        self.browser.password = login['password']
+        self.browser.update_download_info(login['username'], login['password'],
+                                          'smustu', [], DOWNLOAD_DIR)
         login_status = self.browser.login_lawnet()
         assert login_status == 'SUCCESS'
 
@@ -54,7 +50,8 @@ class TestRequestsBrowser:
         ])
     def test_case_download(self, test_citation, expected_ext,
                            expected_sha_file):
-        self.browser.download_case(test_citation)
+        search_lock = threading.Lock()
+        self.browser.download_case(test_citation, search_lock)
         downloaded_case_name = test_citation + '.' + expected_ext
         downloaded_case_path = os.path.join(DOWNLOAD_DIR, downloaded_case_name)
         sha_file_path = os.path.join(SHA_DIR, expected_sha_file)

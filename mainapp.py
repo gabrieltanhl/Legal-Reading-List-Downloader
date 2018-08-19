@@ -7,32 +7,19 @@ import lawnetsearch
 import threading
 from queue import Queue
 import pathlib
-from telemetry import log_anon_usage, authenticate_user
+import datetime
 
 
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
 
-    def __init__(self,
-                 USERNAME,
-                 PASSWORD,
-                 CITATION_LIST,
-                 lawnet_type,
-                 DOWNLOAD_DIR=None,
-                 parent=None):
+    def __init__(self, downloader, parent=None):
         QtCore.QThread.__init__(self)
-        self.username = USERNAME
-        self.password = PASSWORD
-        self.citation_list = CITATION_LIST
-        self.download_dir = DOWNLOAD_DIR
-        self.backend = 'REQUESTS'
+        self.downloader = downloader
+        self.citation_list = downloader.citation_list
         self.progress_per_case = 100 / len(self.citation_list)
         self.progress_counter = 0
-        if lawnet_type == 1:
-            self.login_prefix = 'smustf'
-        else:
-            self.login_prefix = 'smustu'
 
     def finish_job(self, downloader):
         if self.progress_counter < 100:
@@ -41,60 +28,48 @@ class ProgressBar(QtCore.QThread):
         subprocess.call(["open", "-R", file_to_show])
 
     def run(self):
-        if authenticate_user(self.username) is not True:
-            self.download_status.emit('AUTH_FAIL')
+        login_status = self.downloader.login_lawnet()
 
-        elif len(self.citation_list) > 0:
-            downloader = lawnetsearch.LawnetBrowser(
-                self.username, self.password, self.login_prefix,
-                self.download_dir)
+        if login_status == 'FAIL':
+            self.download_status.emit(login_status)
 
-            login_status = downloader.login_lawnet()
+        elif login_status == 'SUCCESS':
+            self.download_status.emit('Login success!')
+            '''
+            Code below launches a thread for every case download.
+            Max # worker threads is 10. Each worker thread pulls a task
+            from the queue and executes it.
+            '''
+            search_lock = threading.Lock()
+            signal_lock = threading.Lock()
 
-            if login_status == 'FAIL':
-                self.download_status.emit(login_status)
+            def threader():
+                while True:
+                    case = q.get()
+                    signal = self.downloader.download_case(
+                        case, search_lock)
+                    self.progress_counter += self.progress_per_case
+                    signal_lock.acquire()
+                    self.download_status.emit(case + "{" + signal)
+                    signal_lock.release()
+                    self.progress_update.emit(int(self.progress_counter))
+                    q.task_done()
 
-            elif login_status == 'SUCCESS':
-                self.download_status.emit('Login success!')
-                '''
-                Code below launches a thread for every case download.
-                Max # worker threads is 10. Each worker thread pulls a task
-                from the queue and executes it.
-                '''
-                search_lock = threading.Lock()
-                signal_lock = threading.Lock()
+            q = Queue()
+            for x in range(10):  # spawn up to 10 threads
+                t = threading.Thread(target=threader)
+                t.daemon = True
+                t.start()
 
-                def threader():
-                    while True:
-                        case = q.get()
-                        signal = downloader.download_case(case, search_lock)
-                        self.progress_counter += self.progress_per_case
-                        signal_lock.acquire()
-                        print(case + "{" + signal)
-                        self.download_status.emit(case + "{" + signal)
-                        # self.current_case.emit(case)
-                        signal_lock.release()
-                        self.progress_update.emit(int(self.progress_counter))
-                        q.task_done()
+            for case in self.citation_list:  # putting cases into job pool
+                q.put(case)
 
-                q = Queue()
-                for x in range(10):  # spawn up to 10 threads
-                    t = threading.Thread(target=threader)
-                    t.daemon = True
-                    t.start()
+            q.join()
+            '''
+            End of multi-threading code
+            '''
 
-                for case in self.citation_list:  # putting cases into job pool
-                    q.put(case)
-
-                q.join()
-                '''
-                End of multi-threading code
-                '''
-
-                self.finish_job(downloader)
-                log_anon_usage(self.username, self.login_prefix,
-                               len(self.citation_list))
-
+            self.finish_job(self.downloader)
 
 class App(QtWidgets.QWidget):
     def __init__(self):
@@ -112,6 +87,8 @@ class App(QtWidgets.QWidget):
         self.settings = QSettings("LegalList")
         self.initUI()
         self.load_settings()
+        self.downloader = lawnetsearch.LawnetBrowser()
+        self.successful_downloads = 0
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -177,8 +154,8 @@ class App(QtWidgets.QWidget):
         if (self.settings.value('reading_list_directory')):
             self.reading_list_directory = self.settings.value(
                 'reading_list_directory')
-        if (self.settings.value('stared_only') == 'true'):
-            self.stared_only = True
+        if self.settings.value('stared_only'):
+            self.stared_only = bool(self.settings.value('stared_only'))
             self.stared_checkbox.setChecked(self.stared_only)
 
     def createProgressBar(self):
@@ -343,32 +320,40 @@ class App(QtWidgets.QWidget):
             self.save_download_directory(download_dir)
 
     def start_download(self):
-        if len(self.citation_list) > 0:
-            self.calc = ProgressBar(self.usernamebox.text(),
-                                    self.passwordbox.text(),
-                                    self.citation_list,
-                                    self.lawnet_type.currentIndex(),
-                                    self.download_directory)
+        if self.download_num() <= 150:
+            if len(self.citation_list) > 0:
+                self.successful_downloads = 0
+                usertype = 'smustf' if self.lawnet_type.currentIndex(
+                ) == 1 else 'smustu'
+                self.downloader.update_download_info(self.usernamebox.text(),
+                                                    self.passwordbox.text(),
+                                                    usertype, self.citation_list,
+                                                    self.download_directory)
+                self.calc = ProgressBar(self.downloader)
 
-            self.calc.start()
-            # connecting signal emitters to UI
-            self.calc.progress_update.connect(self.update_progress_bar)
-            self.calc.download_status.connect(self.update_download_status)
-            # self.calc.current_case.connect(self.update_download_status_column)
+                self.calc.start()
+                # connecting signal emitters to UI
+                self.calc.progress_update.connect(self.update_progress_bar)
+                self.calc.download_status.connect(self.update_download_status)
+                # self.calc.current_case.connect(self.update_download_status_column)
 
-            self.start_button.setDisabled(True)
-            self.progress.show()
-            self.status_label.clear()
-            self.status_label.setText('Logging in...')
+                self.start_button.setDisabled(True)
+                self.progress.show()
+                self.status_label.clear()
+                self.status_label.setText('Logging in...')
+            else:
+                self.status_label.clear()
+                self.status_label.setText(
+                    'No cases detected. Please load a reading list.')
         else:
             self.status_label.clear()
-            self.status_label.setText(
-                'No cases detected. Please load a reading list.')
+            self.status_label.setText('You have exceeded the 150 downloads limit today. This limit will be reset after midnight.')
 
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
 
         if progress_counter == 100 and self.progress.value != 5:
+            self.update_download_num(self.successful_downloads)
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
@@ -405,6 +390,9 @@ class App(QtWidgets.QWidget):
 
             if current_case:
                 num_rows = self.tableWidget.rowCount()
+                # Thread lock should make this safe
+                if 'downloaded' in download_status:
+                    self.successful_downloads += 1
                 for row in range(num_rows):
                     table_item = self.tableWidget.item(row, 0)
                     case_citation = str(table_item.text())
@@ -412,6 +400,27 @@ class App(QtWidgets.QWidget):
                     if case_citation == current_case:
                         case_status = self.tableWidget.item(row, 1)
                         case_status.setText(download_status)
+
+    def download_num(self):
+        today_date = datetime.date.today()
+        if self.settings.value('latest_date'):
+            settings_date = datetime.datetime.strptime(self.settings.value('latest_date'), '%d-%m-%Y').date()
+        else:
+            self.settings.setValue('latest_date', today_date.strftime('%d-%m-%Y'))
+            self.settings.setValue('downloads', 0)
+            return 0
+
+        if settings_date != today_date:
+            self.settings.setValue('latest_date', today_date.strftime('%d-%m-%Y'))
+            self.settings.setValue('downloads', 0)
+            return 0
+        else:
+            return self.settings.value('downloads')
+
+    def update_download_num(self, downloads):
+        new_downloads = int(self.settings.value('downloads')) + downloads
+        self.settings.setValue('downloads', new_downloads)
+        self.settings.sync()
 
     def show_instructions(self):
         popup = QtWidgets.QMessageBox()

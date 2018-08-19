@@ -3,6 +3,7 @@ import os
 from bs4 import BeautifulSoup
 from xhtml2pdf import pisa
 import requests
+import itertools
 
 
 class LawnetBrowser():
@@ -15,16 +16,23 @@ class LawnetBrowser():
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36',
     }
 
-    def __init__(self, username, password, login_prefix, download_dir=None):
+    def __init__(self):
+        self.cookies = None
+        self.download_dir = None
+
+    def update_download_info(
+            self,
+            username,
+            password,
+            login_prefix,
+            citation_list,
+            download_dir=None,
+    ):
         self.username = username
         self.password = password
-        self.driver = None
-        self.cookies = None
-        self.cookiepath = None
-        self.download_dir = None
-        self.set_download_directory(download_dir)
         self.login_prefix = login_prefix
-        print(login_prefix)
+        self.set_download_directory(download_dir)
+        self.citation_list = citation_list
 
     def set_download_directory(self, download_dir):
         if download_dir:
@@ -35,11 +43,12 @@ class LawnetBrowser():
 
         if not os.path.exists(self.download_dir):
             os.makedirs(self.download_dir)
-        self.cookiepath = os.path.join(self.download_dir, '.lawnetcookie.pkl')
 
     def login_lawnet(self):
         with requests.Session() as s:
-            # Attempt to access lawnet with existing cookies
+            if self.cookies:
+                s.cookies = self.cookies
+            # Test existing cookies
             initiate_auth = s.get(
                 'https://login.libproxy.smu.edu.sg/login?auth=shibboleth&url=https://www.lawnet.sg/lawnet/web/lawnet/ip-access'
             )
@@ -73,8 +82,7 @@ class LawnetBrowser():
             }
             # Login to SMU SSO
             login_response = s.post(
-                'https://login.smu.edu.sg/adfs/ls',
-                data=login_payload)
+                'https://login.smu.edu.sg/adfs/ls', data=login_payload)
             soup = BeautifulSoup(login_response.text, 'lxml')
             # Obtain SAML Response keys
             try:
@@ -120,8 +128,7 @@ class LawnetBrowser():
                 'basicSearchKey': case_citation
             }
             if lock:
-                lock.acquire(
-                )  # only 1 thread can post the search request at any time
+                lock.acquire()  # only 1 thread can post the search request
             search_response = s.post(
                 self.SEARCH_FORM_ACTION, data=search_payload)
             if lock:
@@ -135,35 +142,74 @@ class LawnetBrowser():
             cases_onclick = [(case['onclick'], case.get_text())
                              for case in cases_found]
 
-            case_index = self.get_case_index(cases_onclick, case_citation)
-
-            if case_index is None:
+            if len(cases_onclick) == 0:
                 return ('\nUnable to find ' + case_citation + '.')
 
-            doc_id = re.search(r"'(.*)'",
-                               cases_onclick[case_index][0]).group(1)
-            case_url = self.LAWNET_CASE_URL + doc_id
+            # if neutral citation - test first result for PDF
+            if 'SGCA' in case_citation or 'SGHC' in case_citation:
+                # Get link of first case
+                case_id = re.search(r"'(.*)'", cases_onclick[0][0]).group(1)
+                case_url = self.LAWNET_CASE_URL + case_id
 
-            # get the page
-            case_response = s.get(case_url)
-            case_soup = BeautifulSoup(case_response.text, 'lxml')
-
-            for link in case_soup.find_all('a'):
-                if 'PDF' in link.text and link['href'] != '#':
-                    pdf_url = link['href']
-                    break
+                case_response = s.get(case_url)
+                case_text = case_response.text
+                case_soup = BeautifulSoup(case_text, 'lxml')
+                # Find citations on the case page
+                citations_found = [
+                    citation.find('a').contents
+                    for citation in case_soup.find_all(
+                        'span', {'class': 'Citation offhyperlink'})
+                ]
+                # Flatten the list
+                citations_found = list(itertools.chain.from_iterable(citations_found))
+                # check if correct case and there is a pdf
+                if case_citation in citations_found:
+                    if 'SLR' in citations_found[0]:
+                        slr_citation = citations_found[0]
+                        # Check if the same citation is in the reading list
+                        if slr_citation in self.citation_list:
+                            return (f'Duplicate of {slr_citation}')
+                        else:
+                            return self.download_pdf_for_case(s, slr_citation, case_text)
+                    else:
+                        # No SLR version - get HTML version
+                        return self.download_pdf_for_case(s, case_citation, case_text)
                 else:
-                    pdf_url = False
-
-            if pdf_url:
-                pdf_file = s.get(pdf_url)
-                return self.save_pdf(case_citation, pdf_file.content)
+                    return ('\nUnable to find ' + case_citation + '.')
             else:
-                try:
-                    return self.save_html2pdf(case_citation,
-                                              case_response.text)
-                except Exception:
-                    return self.save_html(case_citation, case_response.text)
+                # KIV change to direct download
+                case_index = self.get_case_index(cases_onclick, case_citation)
+
+                if case_index is None:
+                    return ('\nUnable to find ' + case_citation + '.')
+
+                doc_id = re.search(r"'(.*)'",
+                                cases_onclick[case_index][0]).group(1)
+                case_url = self.LAWNET_CASE_URL + doc_id
+                # get the page
+                case_response = s.get(case_url)
+                return self.download_pdf_for_case(s, case_citation,
+                                                case_response.text)
+
+    def download_pdf_for_case(self, session, case_citation, case_page):
+        pdf_url = self.get_pdf_link(case_page)
+
+        if pdf_url:
+            pdf_file = session.get(pdf_url)
+            return self.save_pdf(case_citation, pdf_file.content)
+        else:
+            try:
+                return self.save_html2pdf(case_citation, case_page)
+            except Exception:
+                return self.save_html(case_citation, case_page)
+
+    def get_pdf_link(self, case_page):
+        case_soup = BeautifulSoup(case_page, 'lxml')
+
+        for link in case_soup.find_all('a'):
+            if 'PDF' in link.text and link['href'] != '#':
+                return link['href']
+        return None
 
     def get_case_list_html(self, results_html):
         search_soup = BeautifulSoup(results_html, 'lxml')
