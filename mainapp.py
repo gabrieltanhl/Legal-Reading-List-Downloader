@@ -71,6 +71,7 @@ class ProgressBar(QtCore.QThread):
 
             self.finish_job(self.downloader)
 
+
 class App(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -122,27 +123,6 @@ class App(QtWidgets.QWidget):
 
         # Show widget
         self.show()
-
-    @Slot()
-    def update_citation_list(self, row):
-        """
-        updates citation list whenever a case is checked/unchecked
-        this method is triggered by a signal from tableWidget.itemChanged.connect
-        """
-        num_rows = self.tableWidget.rowCount()
-
-        for row in range(num_rows):
-            table_item = self.tableWidget.item(row, 0)
-            checkbox_state = table_item.checkState()
-            case_citation = str(table_item.text())
-
-            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
-                if case_citation in self.citation_list:
-                    self.citation_list.remove(case_citation)
-
-            elif checkbox_state == QtCore.Qt.CheckState.Checked:
-                if case_citation not in self.citation_list:
-                    self.citation_list.append(case_citation)
 
     def load_settings(self):
         if (self.settings.value('download_directory')):
@@ -211,6 +191,8 @@ class App(QtWidgets.QWidget):
         self.tableWidget.setColumnCount(2)
         self.tableWidget.setHorizontalHeaderLabels(
             ['Case Citation', 'Download Status'])
+        self.tableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
@@ -221,7 +203,6 @@ class App(QtWidgets.QWidget):
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
-        self.tableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
 
         downloadstatus = QtWidgets.QTableWidgetItem("-")
         downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
@@ -297,8 +278,26 @@ class App(QtWidgets.QWidget):
             reading_list_directory = str(pathlib.Path(reading_list[0]).parent)
             self.save_reading_list_directory(reading_list_directory)
 
-        # after table is constructed, make it emit signals when
-        # any of the cases are checked
+    @Slot()
+    def update_citation_list(self, row):
+        """
+        updates citation list whenever a case is checked/unchecked
+        this method is triggered by a signal from tableWidget.itemChanged.connect
+        """
+        num_rows = self.tableWidget.rowCount()
+
+        for row in range(num_rows):
+            table_item = self.tableWidget.item(row, 0)
+            checkbox_state = table_item.checkState()
+            case_citation = str(table_item.text())
+
+            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
+                if case_citation in self.citation_list:
+                    self.citation_list.remove(case_citation)
+
+            elif checkbox_state == QtCore.Qt.CheckState.Checked:
+                if case_citation not in self.citation_list:
+                    self.citation_list.append(case_citation)
 
     @Slot()
     def disableButton(self):
@@ -319,6 +318,7 @@ class App(QtWidgets.QWidget):
             self.download_directory = download_dir + '/'
             self.save_download_directory(download_dir)
 
+    @Slot()
     def start_download(self):
         if self.download_num() <= 150:
             if len(self.citation_list) > 0:
@@ -349,6 +349,7 @@ class App(QtWidgets.QWidget):
             self.status_label.clear()
             self.status_label.setText('Daily Download Limit Exceeded')
 
+    @Slot()
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
 
@@ -360,6 +361,7 @@ class App(QtWidgets.QWidget):
             self.status_label.clear()
             self.show_popup('Download complete!')
 
+    @Slot()
     def update_download_status(self, download_status):
         if '{' in download_status:
             current_case, download_status = download_status.split('{')
