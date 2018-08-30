@@ -123,7 +123,8 @@ class App(QtWidgets.QWidget):
         # Show widget
         self.show()
 
-    def update_citation_list(self):
+    @Slot()
+    def update_citation_list(self, row):
         """
         updates citation list whenever a case is checked/unchecked
         this method is triggered by a signal from tableWidget.itemChanged.connect
@@ -213,14 +214,14 @@ class App(QtWidgets.QWidget):
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        self.tableWidget.itemChanged.connect(self.update_citation_list)
 
     def construct_table_row_from_list(self, row_num, case_title):
-
         self.tableWidget.insertRow(row_num)
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
-        checkbox.setFlags(~QtCore.Qt.ItemIsEditable)
+        self.tableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
 
         downloadstatus = QtWidgets.QTableWidgetItem("-")
         downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
@@ -298,7 +299,6 @@ class App(QtWidgets.QWidget):
 
         # after table is constructed, make it emit signals when
         # any of the cases are checked
-        self.tableWidget.itemChanged.connect(self.update_citation_list)
 
     @Slot()
     def disableButton(self):
