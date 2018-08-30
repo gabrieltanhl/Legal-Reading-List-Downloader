@@ -326,16 +326,16 @@ class App(QtWidgets.QWidget):
                 usertype = 'smustf' if self.lawnet_type.currentIndex(
                 ) == 1 else 'smustu'
                 self.downloader.update_download_info(self.usernamebox.text(),
-                                                    self.passwordbox.text(),
-                                                    usertype, self.citation_list,
-                                                    self.download_directory)
+                                                     self.passwordbox.text(),
+                                                     usertype,
+                                                     self.citation_list,
+                                                     self.download_directory)
                 self.calc = ProgressBar(self.downloader)
 
                 self.calc.start()
                 # connecting signal emitters to UI
                 self.calc.progress_update.connect(self.update_progress_bar)
                 self.calc.download_status.connect(self.update_download_status)
-                # self.calc.current_case.connect(self.update_download_status_column)
 
                 self.start_button.setDisabled(True)
                 self.progress.show()
@@ -366,17 +366,7 @@ class App(QtWidgets.QWidget):
         else:
             current_case = None
 
-        if download_status == 'AUTH_FAIL':
-            self.start_button.setDisabled(False)
-            self.progress.close()
-            self.progress.setValue(1)
-            self.status_label.clear()
-            self.show_popup(
-                "App is locked",
-                "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!"
-            )
-
-        elif download_status == 'FAIL':
+        if download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
