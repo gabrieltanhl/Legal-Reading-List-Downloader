@@ -11,6 +11,16 @@ class LawnetBrowser():
     LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
     LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
     SEARCH_FORM_ACTION = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/result-page?p_p_id=legalresearchresultpage_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_action=basicSeachActionURL&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_searchType=0'
+    PDF_REPORTS = [
+        'SLR',
+        'Ch',
+        'AC',
+        'A.C.',
+        'WLR',
+        'SSAR',
+        'SSLR',
+        'FMSLR'
+    ]
 
     def __init__(self):
         self.cookies = None
@@ -141,7 +151,7 @@ class LawnetBrowser():
                 return ('\nUnable to find ' + case_citation + '.')
 
             # if neutral citation - test first result for PDF
-            if 'SGCA' in case_citation or 'SGHC' in case_citation:
+            if not any(map(lambda abbrev: abbrev in case_citation, self.PDF_REPORTS)):
                 # Get link of first case
                 case_id = re.search(r"'(.*)'", cases_onclick[0][0]).group(1)
                 case_url = self.LAWNET_CASE_URL + case_id
@@ -157,7 +167,6 @@ class LawnetBrowser():
                 ]
                 # Flatten the list
                 citations_found = list(itertools.chain.from_iterable(citations_found))
-                # check if correct case and there is a pdf
                 if case_citation in citations_found:
                     if 'SLR' in citations_found[0]:
                         slr_citation = citations_found[0]
@@ -172,19 +181,48 @@ class LawnetBrowser():
                 else:
                     return ('\nUnable to find ' + case_citation + '.')
             else:
-                # KIV change to direct download
                 case_index = self.get_case_index(cases_onclick, case_citation)
-
                 if case_index is None:
                     return ('\nUnable to find ' + case_citation + '.')
 
                 doc_id = re.search(r"'(.*)'",
                                 cases_onclick[case_index][0]).group(1)
-                case_url = self.LAWNET_CASE_URL + doc_id
-                # get the page
-                case_response = s.get(case_url)
-                return self.download_pdf_for_case(s, case_citation,
-                                                case_response.text)
+                doc_id = doc_id.split('.')[0]
+
+                pdf_url = self.generate_pdf_url(case_citation, doc_id)
+                pdf_response = s.get(pdf_url)
+                return self.save_pdf(case_citation, pdf_response.content)
+
+    def generate_pdf_url(self, case_citation, doc_id):
+        def pad_four_digit(case_citation):
+            resource_name = case_citation.split(' ')
+            resource_name[-1] = resource_name[-1].zfill(4)
+            return resource_name
+
+        pdf_base_url = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=2&p_p_resource_id=viewPDFSourceDocument'
+        if 'SLR' in case_citation:
+            resource_name = pad_four_digit(case_citation)
+            resource_name = ' '.join(resource_name)
+        elif 'SSAR' in case_citation:
+            if any(map(lambda year: str(year) in case_citation, range(1985, 2011))):
+                resource_name = pad_four_digit(case_citation)
+                resource_name = ' '.join(['(1985-2010)'] + resource_name[1:])
+            else:
+                resource_name = pad_four_digit(case_citation)
+                resource_name = ' '.join(resource_name)
+        elif 'WLR' in case_citation and any(map(lambda year: str(year) in case_citation, range(2008, 2021))):
+            resource_name = case_citation.replace(' ', '-').replace('[', '').replace(']', '')
+        elif 'AC' in case_citation:
+            case_citation = case_citation.replace(' ', '-')
+            resource_name = case_citation
+        elif 'A.C.' in case_citation:
+            case_citation = case_citation.replace('A.C.', 'AC')
+            resource_name = case_citation
+        else:
+            resource_name = case_citation
+
+        pdf_url = f'{pdf_base_url}&pdfFileName={case_citation}.pdf&pdfFileUri={doc_id}/resource/{resource_name}.pdf'
+        return pdf_url
 
     def download_pdf_for_case(self, session, case_citation, case_page):
         pdf_url = self.get_pdf_link(case_page)
