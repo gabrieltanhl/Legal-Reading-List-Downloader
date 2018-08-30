@@ -389,13 +389,16 @@ class App(QtWidgets.QWidget):
             self.status_label.setText('Downloading in progress...')
 
             if current_case:
-                num_rows = self.tableWidget.rowCount()
-                # Thread lock should make this safe
                 if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                    case_row = self.citation_list.index(current_case)
-                    case_status_table_row = self.tableWidget.item(case_row, 1)
-                    case_status_table_row.setText(download_status)
+                num_rows = self.tableWidget.rowCount()
+                for row in range(num_rows):
+                    table_item = self.tableWidget.item(row, 0)
+                    case_citation = str(table_item.text())
+
+                    if case_citation == current_case:
+                        case_status = self.tableWidget.item(row, 1)
+                        case_status.setText(download_status)
 
     def download_num(self):
         today_date = datetime.date.today()
