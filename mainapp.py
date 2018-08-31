@@ -77,7 +77,7 @@ class ProgressBar(QtCore.QThread):
 class App(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.title = 'LawNet Reading List Downloader'
+        self.title = 'LawNet Reading List Downloader (LRLD)'
         self.left = 600
         self.top = 400
         self.width = 800
@@ -426,9 +426,9 @@ class App(QtWidgets.QWidget):
     def show_about(self):
         popup = QtWidgets.QMessageBox()
         popup.setTextFormat(QtCore.Qt.RichText)
-        popup.setText(f'About - LawNet Reading List Downloader (LRLD) {VERSION} (MacOS version)')
+        popup.setText(f'LawNet Reading List Downloader (LRLD) {VERSION} (MacOS version)')
         popup.setInformativeText(
-            "This program was developed by Singapore Management University Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The program's source code and license are available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>GitHub</a>.<br><br>We would like to thank the Singapore Academy of Law and LawNet <a href='https://www.lawnet.sg/'>(www.lawnet.sg)</a> for their support. The cases and materials downloaded using this program come from LawNet and are subject to their Terms and Conditions <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>(https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions)</a>.<br><br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao.<br><br>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <a href='https://www.gnu.org/licenses/'>(https://www.gnu.org/licenses/)</a>."
+            "The LRLD was developed by Singapore Management University (SMU) Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021) and is maintained by Legal Innovation and Technology (LIT), a SMU Co-curricular Activity (CCA).<br><br>The LRLD is distributed under the GNU General Public License Terms and its source code is available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>GitHub</a>.<br><br>The cases and materials downloaded using the LRLD program come from LawNet and are subject to their <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>Terms and Conditions</a>.<br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao."
         )
         popup.exec_()
 
