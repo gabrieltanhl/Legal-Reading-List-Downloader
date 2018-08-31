@@ -29,7 +29,7 @@ This will generate a ```mainapp.spec``` file in your project directory which pro
 For the app to have its own name and icon, also make sure ```mainapp.spec``` contains the following:
 ```
 app = BUNDLE(exe,
-             name='Reading List Downloader.app',
+             name='LawNet Reading List Downloader (LRLD).app',
              icon='icon.icns',
              bundle_identifier=None,
              info_plist={'NSPrincipalClass':'NSApplication',
