@@ -1,20 +1,20 @@
-# Legal Reading List Downloader (Beta)
-A desktop app that automatically download cases in your reading lists from LawNet. **Please download the latest release from [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).**
+# LawNet Reading List Downloader - LRLD
+A desktop app that automatically downloads cases in your reading lists from LawNet. **The latest release can be found [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).**
 
-Currently supports SLR, SLR(R), SGCA, SGHC, WLR, MLR and Ch cases. More case types will supported in the future.
+The Singapore Academy of Law has approved the use of the LRLD by students and faculty members of Singapore Management University (SMU). 
 
-Only for SMU LawNet accounts (as of now).
+Only SMU LawNet accounts are supported (as of now).
 
 Start screen             |  Downloading cases
 :-------------------------:|:-------------------------:
 ![](https://user-images.githubusercontent.com/24975800/43300130-0d21778a-9190-11e8-98b9-fd8c3b4e78eb.png "Start page of app")  |  ![](https://user-images.githubusercontent.com/24975800/43300132-0f44b9be-9190-11e8-9a05-b8ce778f28e3.png "Downloading cases")
 
-Built by law students from the Singapore Management University: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
+Built by the law students from SMU: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
 
+# Development
 ## Prerequisites for compiling
-1. Download the latest chromedriver from http://chromedriver.chromium.org/downloads and place it in the project directory
-2. Make sure the dependencies in requirements.txt are installed and you have Python 3.6 or higher. The dependencies should be installed in a virtual environment e.g. using ```virtualenv```.
-3. Install PySide2==5.9 with ```python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.9/latest pyside2 --trusted-host download.qt.io```
+1. Make sure the dependencies in requirements.txt are installed and you have Python 3.6 or higher. The dependencies should be installed in a virtual environment e.g. using ```virtualenv```.
+2. Install PySide2==5.9 with ```python -m pip install --index-url=http://download.qt.io/snapshots/ci/pyside/5.9/latest pyside2 --trusted-host download.qt.io```
 
 ## Running the app without compiling
 Run ```mainapp.py``` in your terminal
@@ -24,7 +24,7 @@ In the project directory, run:
 ```
 pyi-makespec mainapp.py --onefile --windowed
 ```
-This will generate a ```mainapp.spec``` file in your project directory which provides compilation instructions to PyInstaller. Open ```mainapp.spec``` in a code editor and replace the binaries line with ```binaries=[('chromedriver','.')]```. This instructs PyInstaller to bundle the chromedriver binary when it is compiling the app.
+This will generate a ```mainapp.spec``` file in your project directory which provides compilation instructions to PyInstaller.
 
 For the app to have its own name and icon, also make sure ```mainapp.spec``` contains the following:
 ```
@@ -53,9 +53,9 @@ pyinstaller mainapp.spec
 The binaries will be located in the ```dist``` folder.
 
 ## Testing
-Testing is done using the PyTest framework. VCR.py is used to save the http responses, to minimise hits to the LawNet servers. On the first testing run, a folder cassettes/ will be created inside the tests/ folder. Delete this folder if you want the tests to make real requests to the LawNet servers.
+Testing is done using the PyTest framework. VCR.py is used to save the http responses, to minimise hits to the LawNet servers. On the first testing run, a folder ```cassettes``` will be created inside the ```tests``` folder. Delete this folder if you want the tests to make real requests to the LawNet servers.
 1. Make sure to install the testing dependencies as provided inside requirements.txt.
-2. Create a file ```credentials.py``` inside the tests/ folder. This file should contain 2 dicts called ```login``` and ```false_login```. Each dict should contain 2 keys ```username``` and ```password```. ```login``` dict should contain correct credentials, while ```false_login``` should contain fake credentials.
+2. Create a file ```credentials.py``` inside the ```tests``` folder. This file should contain 2 dicts called ```login``` and ```false_login```. Each dict should contain 2 keys ```username``` and ```password```. ```login``` dict should contain correct credentials, while ```false_login``` should contain fake credentials.
 3. Run the tests from the project root with ```python -m pytest tests```.
 
 #### SHA hashes
