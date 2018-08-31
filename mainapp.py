@@ -10,6 +10,8 @@ import pathlib
 import datetime
 
 
+VERSION = '1.0.1'
+
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
     download_status = QtCore.Signal(str)
@@ -71,6 +73,7 @@ class ProgressBar(QtCore.QThread):
 
             self.finish_job(self.downloader)
 
+
 class App(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -122,26 +125,6 @@ class App(QtWidgets.QWidget):
 
         # Show widget
         self.show()
-
-    def update_citation_list(self):
-        """
-        updates citation list whenever a case is checked/unchecked
-        this method is triggered by a signal from tableWidget.itemChanged.connect
-        """
-        num_rows = self.tableWidget.rowCount()
-
-        for row in range(num_rows):
-            table_item = self.tableWidget.item(row, 0)
-            checkbox_state = table_item.checkState()
-            case_citation = str(table_item.text())
-
-            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
-                if case_citation in self.citation_list:
-                    self.citation_list.remove(case_citation)
-
-            elif checkbox_state == QtCore.Qt.CheckState.Checked:
-                if case_citation not in self.citation_list:
-                    self.citation_list.append(case_citation)
 
     def load_settings(self):
         if (self.settings.value('download_directory')):
@@ -210,17 +193,18 @@ class App(QtWidgets.QWidget):
         self.tableWidget.setColumnCount(2)
         self.tableWidget.setHorizontalHeaderLabels(
             ['Case Citation', 'Download Status'])
+        self.tableWidget.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
+
         header = self.tableWidget.horizontalHeader()
         header.setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
         header.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeToContents)
+        self.tableWidget.itemChanged.connect(self.update_citation_list)
 
     def construct_table_row_from_list(self, row_num, case_title):
-
         self.tableWidget.insertRow(row_num)
 
         checkbox = QtWidgets.QTableWidgetItem(case_title)
         checkbox.setCheckState(QtCore.Qt.Checked)
-        checkbox.setFlags(~QtCore.Qt.ItemIsEditable)
 
         downloadstatus = QtWidgets.QTableWidgetItem("-")
         downloadstatus.setFlags(QtCore.Qt.ItemIsEditable)
@@ -296,9 +280,26 @@ class App(QtWidgets.QWidget):
             reading_list_directory = str(pathlib.Path(reading_list[0]).parent)
             self.save_reading_list_directory(reading_list_directory)
 
-        # after table is constructed, make it emit signals when
-        # any of the cases are checked
-        self.tableWidget.itemChanged.connect(self.update_citation_list)
+    @Slot()
+    def update_citation_list(self, row):
+        """
+        updates citation list whenever a case is checked/unchecked
+        this method is triggered by a signal from tableWidget.itemChanged.connect
+        """
+        num_rows = self.tableWidget.rowCount()
+
+        for row in range(num_rows):
+            table_item = self.tableWidget.item(row, 0)
+            checkbox_state = table_item.checkState()
+            case_citation = str(table_item.text())
+
+            if checkbox_state == QtCore.Qt.CheckState.Unchecked:
+                if case_citation in self.citation_list:
+                    self.citation_list.remove(case_citation)
+
+            elif checkbox_state == QtCore.Qt.CheckState.Checked:
+                if case_citation not in self.citation_list:
+                    self.citation_list.append(case_citation)
 
     @Slot()
     def disableButton(self):
@@ -319,6 +320,7 @@ class App(QtWidgets.QWidget):
             self.download_directory = download_dir + '/'
             self.save_download_directory(download_dir)
 
+    @Slot()
     def start_download(self):
         if self.download_num() <= 150:
             if len(self.citation_list) > 0:
@@ -326,16 +328,16 @@ class App(QtWidgets.QWidget):
                 usertype = 'smustf' if self.lawnet_type.currentIndex(
                 ) == 1 else 'smustu'
                 self.downloader.update_download_info(self.usernamebox.text(),
-                                                    self.passwordbox.text(),
-                                                    usertype, self.citation_list,
-                                                    self.download_directory)
+                                                     self.passwordbox.text(),
+                                                     usertype,
+                                                     self.citation_list,
+                                                     self.download_directory)
                 self.calc = ProgressBar(self.downloader)
 
                 self.calc.start()
                 # connecting signal emitters to UI
                 self.calc.progress_update.connect(self.update_progress_bar)
                 self.calc.download_status.connect(self.update_download_status)
-                # self.calc.current_case.connect(self.update_download_status_column)
 
                 self.start_button.setDisabled(True)
                 self.progress.show()
@@ -349,6 +351,7 @@ class App(QtWidgets.QWidget):
             self.status_label.clear()
             self.status_label.setText('Daily Download Limit Exceeded')
 
+    @Slot()
     def update_progress_bar(self, progress_counter):
         self.progress.setValue(progress_counter)
 
@@ -360,23 +363,14 @@ class App(QtWidgets.QWidget):
             self.status_label.clear()
             self.show_popup('Download complete!')
 
+    @Slot()
     def update_download_status(self, download_status):
         if '{' in download_status:
             current_case, download_status = download_status.split('{')
         else:
             current_case = None
 
-        if download_status == 'AUTH_FAIL':
-            self.start_button.setDisabled(False)
-            self.progress.close()
-            self.progress.setValue(1)
-            self.status_label.clear()
-            self.show_popup(
-                "App is locked",
-                "Sorry! It appears that you are not in the beta testing group. While we prepare for launch, please sign up <a href='https://docs.google.com/forms/d/e/1FAIpQLSe1vxVcnB829rxdZnQRLzdAyUMmZHfssAvBCi44I--3ds1eyQ/viewform'>here</a> to be one of the first to use this app when it launches!"
-            )
-
-        elif download_status == 'FAIL':
+        if download_status == 'FAIL':
             self.start_button.setDisabled(False)
             self.progress.close()
             self.progress.setValue(1)
@@ -389,13 +383,16 @@ class App(QtWidgets.QWidget):
             self.status_label.setText('Downloading in progress...')
 
             if current_case:
-                num_rows = self.tableWidget.rowCount()
-                # Thread lock should make this safe
                 if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                    case_row = self.citation_list.index(current_case)
-                    case_status_table_row = self.tableWidget.item(case_row, 1)
-                    case_status_table_row.setText(download_status)
+                num_rows = self.tableWidget.rowCount()
+                for row in range(num_rows):
+                    table_item = self.tableWidget.item(row, 0)
+                    case_citation = str(table_item.text())
+
+                    if case_citation == current_case:
+                        case_status = self.tableWidget.item(row, 1)
+                        case_status.setText(download_status)
 
     def download_num(self):
         today_date = datetime.date.today()
@@ -429,7 +426,7 @@ class App(QtWidgets.QWidget):
     def show_about(self):
         popup = QtWidgets.QMessageBox()
         popup.setTextFormat(QtCore.Qt.RichText)
-        popup.setText('About')
+        popup.setText(f'About - LRLD Version {VERSION}')
         popup.setInformativeText(
             "This program was developed by SMU Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021). The program's source code and license are available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>Github</a>.<br><br>We would like to thank the Singapore Academy of Law and LawNet <a href='https://www.lawnet.sg/'>(www.lawnet.sg)</a> for their support. The cases and materials downloaded using this program come from LawNet and are subject to their Terms and Conditions <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>(https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions)</a>.<br><br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao.<br><br>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.\n\nThis program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.\n\nYou should have received a copy of the GNU General Public License along with this program. If not, see <a href='https://www.gnu.org/licenses/'>(https://www.gnu.org/licenses/)</a>."
         )
