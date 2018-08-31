@@ -160,11 +160,17 @@ class LawnetBrowser():
                 case_text = case_response.text
                 case_soup = BeautifulSoup(case_text, 'lxml')
                 # Find citations on the case page
-                citations_found = [
-                    citation.find('a').contents
-                    for citation in case_soup.find_all(
-                        'span', {'class': 'Citation offhyperlink'})
-                ]
+                citations_found = []
+                for citation in case_soup.find_all('span', {'class': 'Citation offhyperlink'}):
+                    try:
+                        citations_found.append(citation.find('a').contents)
+                    except Exception:
+                        pass
+                    try:
+                        citations_found.append(citation.contents)
+                    except Exception:
+                        pass
+
                 # Flatten the list
                 citations_found = list(itertools.chain.from_iterable(citations_found))
                 if case_citation in citations_found:
