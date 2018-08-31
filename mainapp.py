@@ -417,9 +417,9 @@ class App(QtWidgets.QWidget):
 
     def show_instructions(self):
         popup = QtWidgets.QMessageBox()
-        popup.setText('Instructions')
+        popup.setText('The LawNet Reading List Downloader (LRLD) helps you download your reading list cases from LawNet.\n\nInstructions')
         popup.setInformativeText(
-            'This is a tool that helps you download cases from LawNet.\n\nSteps:\n(1) Enter your login credentials.\n\n(2) Load a reading list (only in .docx or .pdf formats) and select a download directory.\n\n(3) Check or uncheck the cases you want to download\n\n(4) Click the download button.'
+            '(1) Enter your SMU login credentials\n\n(2) Load a reading list (.docx or .pdf)\n\n(3) Select a download directory\n\n(4) Check the cases you wish to download\n\n(5) Click \"Start Download\"'
         )
         popup.exec_()
 
@@ -428,7 +428,7 @@ class App(QtWidgets.QWidget):
         popup.setTextFormat(QtCore.Qt.RichText)
         popup.setText(f'LawNet Reading List Downloader (LRLD) {VERSION} (MacOS version)')
         popup.setInformativeText(
-            "The LRLD was developed by Singapore Management University (SMU) Law students: Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021) and is maintained by Legal Innovation and Technology (LIT), a SMU Co-curricular Activity (CCA).<br><br>The LRLD is distributed under the GNU General Public License Terms and its source code is available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>GitHub</a>.<br><br>The cases and materials downloaded using the LRLD program come from LawNet and are subject to their <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>Terms and Conditions</a>.<br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao."
+            "The LRLD was developed by Singapore Management University (SMU) law students Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021) and is maintained by Legal Innovation and Technology (LIT), a SMU Co-curricular Activity (CCA).<br><br>The LRLD is distributed under the GNU General Public License Terms and its source code is available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>GitHub</a>.<br><br>The cases and materials downloaded using the LRLD program come from LawNet and are subject to their <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>Terms and Conditions</a>.<br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao."
         )
         popup.exec_()
 
