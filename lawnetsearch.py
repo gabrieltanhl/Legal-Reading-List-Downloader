@@ -2,10 +2,13 @@ import re
 import os
 from bs4 import BeautifulSoup
 from xhtml2pdf import pisa
+from collections import namedtuple
 import requests
 import itertools
+import string
 
 
+SearchResult = namedtuple('SearchResult', ['case_url', 'case_name'])
 class LawnetBrowser():
     SMU_LAWNET_PROXY_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
     LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
@@ -124,9 +127,6 @@ class LawnetBrowser():
 
         with requests.Session() as s:
             s.cookies = self.cookies
-            # generate search payload to POST
-            # current category and grouping are just extracted
-            # from Chrome
             search_payload = {
                 'grouping': '1',
                 'category': categories,
@@ -143,8 +143,7 @@ class LawnetBrowser():
             # without javascript, there is a function call with a
             # "resource id" captured within the "onclick" action
             # of the link
-            # data structure: tuple - (case url, case text)
-            cases_onclick = [(case['onclick'], case.get_text())
+            cases_onclick = [SearchResult(case['onclick'], (case.text).strip(''))
                              for case in cases_found]
 
             if len(cases_onclick) == 0:
@@ -153,7 +152,7 @@ class LawnetBrowser():
             # if neutral citation - test first result for PDF
             if not any(map(lambda abbrev: abbrev in case_citation, self.PDF_REPORTS)):
                 # Get link of first case
-                case_id = re.search(r"'(.*)'", cases_onclick[0][0]).group(1)
+                case_id = re.search(r"'(.*)'", cases_onclick[0].case_url).group(1)
                 case_url = self.LAWNET_CASE_URL + case_id
 
                 case_response = s.get(case_url)
@@ -165,25 +164,23 @@ class LawnetBrowser():
                     try:
                         citations_found.append(citation.find('a').contents)
                     except Exception:
-                        pass
-                    try:
                         citations_found.append(citation.contents)
-                    except Exception:
-                        pass
 
                 # Flatten the list
                 citations_found = list(itertools.chain.from_iterable(citations_found))
                 if case_citation in citations_found:
-                    if 'SLR' in citations_found[0]:
-                        slr_citation = citations_found[0]
+                    slr_citation = citations_found[0]
+                    print(citations_found)
+                    if 'SLR' in slr_citation:
+                        print(slr_citation)
                         # Check if the same citation is in the reading list
                         if slr_citation in self.citation_list:
                             return (f'Duplicate of {slr_citation}')
                         else:
-                            return self.download_pdf_for_case(s, slr_citation, case_text)
+                            return self.download_pdf_for_case(s, slr_citation, case_text, cases_onclick[0].case_name)
                     else:
                         # No SLR version - get HTML version
-                        return self.download_pdf_for_case(s, case_citation, case_text)
+                        return self.download_pdf_for_case(s, case_citation, case_text, cases_onclick[0].case_name)
                 else:
                     return ('\nUnable to find ' + case_citation + '.')
             else:
@@ -192,12 +189,12 @@ class LawnetBrowser():
                     return ('\nUnable to find ' + case_citation + '.')
 
                 doc_id = re.search(r"'(.*)'",
-                                cases_onclick[case_index][0]).group(1)
+                                   cases_onclick[case_index].case_url).group(1)
                 doc_id = doc_id.split('.')[0]
 
                 pdf_url = self.generate_pdf_url(case_citation, doc_id)
                 pdf_response = s.get(pdf_url)
-                return self.save_pdf(case_citation, pdf_response.content)
+                return self.save_pdf(case_citation, pdf_response.content, cases_onclick[case_index].case_name)
 
     def generate_pdf_url(self, case_citation, doc_id):
         def pad_four_digit(case_citation):
@@ -230,17 +227,17 @@ class LawnetBrowser():
         pdf_url = f'{pdf_base_url}&pdfFileName={case_citation}.pdf&pdfFileUri={doc_id}/resource/{resource_name}.pdf'
         return pdf_url
 
-    def download_pdf_for_case(self, session, case_citation, case_page):
+    def download_pdf_for_case(self, session, case_citation, case_page, filename):
         pdf_url = self.get_pdf_link(case_page)
 
         if pdf_url:
             pdf_file = session.get(pdf_url)
-            return self.save_pdf(case_citation, pdf_file.content)
+            return self.save_pdf(case_citation, pdf_file.content, filename)
         else:
             try:
-                return self.save_html2pdf(case_citation, case_page)
+                return self.save_html2pdf(case_citation, case_page, filename)
             except Exception:
-                return self.save_html(case_citation, case_page)
+                return self.save_html(case_citation, case_page, filename)
 
     def get_pdf_link(self, case_page):
         case_soup = BeautifulSoup(case_page, 'lxml')
@@ -265,31 +262,37 @@ class LawnetBrowser():
 
         return case_index
 
-    def save_pdf(self, case_citation, case_data):
-        case_path = os.path.join(self.download_dir, case_citation + '.pdf')
+    def clean_filename(self, filename):
+        valid_chars = f'_-.()[] {string.ascii_letters}{string.digits}'
+        clean_name = ''.join([char for char in filename if char in valid_chars])
+
+        return clean_name
+
+    def save_pdf(self, case_citation, case_data, filename):
+        case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.pdf')
         with open(case_path, 'wb') as case_file:
             case_file.write(case_data)
 
-        return f'\nPDF downloaded for {case_citation}.'
+        return f'\nPDF downloaded.'
 
-    def save_html(self, case_citation, case_data):
-        case_path = os.path.join(self.download_dir, case_citation + '.html')
+    def save_html(self, case_citation, case_data, filename):
+        case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.html')
         with open(case_path, 'w', encoding='utf-8') as case_file:
             case_file.write(case_data)
 
         return (
-            f'\nPDF not available for {case_citation}. HTML version downloaded.'
+            f'\nPDF not available. HTML version downloaded.'
         )
 
-    def save_html2pdf(self, case_citation, case_data):
+    def save_html2pdf(self, case_citation, case_data, filename):
         def cleanup_html(source_html):
             divider = "<div class=\"navi-container\"> </div>"
             new_html = source_html.split(divider)[1]
             return new_html
 
-        case_path = os.path.join(self.download_dir, case_citation + '.pdf')
+        case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.pdf')
         resultFile = open(case_path, "w+b")
         new_html = cleanup_html(case_data)
         pisa.CreatePDF(new_html, dest=resultFile)
         resultFile.close()
-        return f'\nPDF downloaded for {case_citation}.'
+        return f'\nPDF downloaded.'
