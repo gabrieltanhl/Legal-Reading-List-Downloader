@@ -143,7 +143,7 @@ class LawnetBrowser():
             # without javascript, there is a function call with a
             # "resource id" captured within the "onclick" action
             # of the link
-            cases_onclick = [SearchResult(case['onclick'], (case.text).strip(''))
+            cases_onclick = [SearchResult(case['onclick'], (case.text).strip())
                              for case in cases_found]
 
             if len(cases_onclick) == 0:
