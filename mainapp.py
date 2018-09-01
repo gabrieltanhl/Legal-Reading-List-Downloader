@@ -1,5 +1,5 @@
 import sys
-from PySide2 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Slot, QSettings
 import parsedocs
 import subprocess
@@ -8,10 +8,13 @@ import threading
 from queue import Queue
 import pathlib
 import datetime
+import requests
+from distutils.version import StrictVersion
 from applicationinsights import TelemetryClient
 
 VERSION = '1.0.2'
 Telemetry = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
+
 
 class ProgressBar(QtCore.QThread):
     progress_update = QtCore.Signal(int)
@@ -90,8 +93,7 @@ class App(QtWidgets.QWidget):
         self.reading_list_directory = None
         self.citation_list = []
         self.stared_only = False
-        # Temporary "app name" with no organisation until details are confirmed
-        self.settings = QSettings("LegalList")
+        self.settings = QSettings('LegalList')
         self.load_settings()
         self.initUI()
         self.downloader = lawnetsearch.LawnetBrowser()
@@ -226,6 +228,13 @@ class App(QtWidgets.QWidget):
 
         toolbar_instructions.triggered.connect(self.show_instructions)
         toolbar_about.triggered.connect(self.show_about)
+
+        update_required, dl_link = self.check_update_required()
+        if update_required:
+            toolbar_update = QtWidgets.QAction('New update available. Click here to download', self)
+            self.menu_bar.addAction(toolbar_update)
+            toolbar_update.triggered.connect(lambda: QtGui.QDesktopServices.openUrl(QtCore.QUrl(dl_link)))
+
 
     def show_popup(self, header, body=None):
         popup = QtWidgets.QMessageBox()
@@ -435,6 +444,13 @@ class App(QtWidgets.QWidget):
             "The LRLD was developed by Singapore Management University (SMU) law students Gabriel Tan (Class of 2018), Ng Jun Xuan (Class of 2019), Wan Ding Yao (Class of 2021) and is maintained by Legal Innovation and Technology (LIT), a SMU Co-curricular Activity (CCA).<br><br>The LRLD is distributed under the GNU General Public License Terms and its source code is available on <a href='https://github.com/gabrieltanhl/Legal-Reading-List-Downloader'>GitHub</a>.<br><br>The cases and materials downloaded using the LRLD program come from LawNet and are subject to their <a href='https://www.lawnet.sg/lawnet/web/lawnet/terms-and-conditions'>Terms and Conditions</a>.<br><br>Copyright (C) 2018 Gabriel Tan, Ng Jun Xuan, Wan Ding Yao."
         )
         popup.exec_()
+
+    def check_update_required(self):
+        gh_release_info = requests.get('https://api.github.com/repos/gabrieltanhl/Legal-Reading-List-Downloader/releases/latest').json()
+        latest_version = gh_release_info['tag_name'][1:]
+        update_required = StrictVersion(latest_version) > StrictVersion(VERSION)
+        download_link = gh_release_info['assets'][0]['browser_download_url']
+        return update_required, download_link
 
     def setStyles(self):
         self.setStyleSheet("""
