@@ -124,6 +124,7 @@ class LawnetBrowser():
     def download_case(self, case_citation, lock=None):
         print('Downloading case', case_citation)
         categories = ['1', '2', '4', '5', '6', '7', '8', '27']
+        case_citation = case_citation.replace('Ch ', 'Ch. ')
 
         with requests.Session() as s:
             s.cookies = self.cookies
@@ -170,9 +171,7 @@ class LawnetBrowser():
                 citations_found = list(itertools.chain.from_iterable(citations_found))
                 if case_citation in citations_found:
                     slr_citation = citations_found[0]
-                    print(citations_found)
                     if 'SLR' in slr_citation:
-                        print(slr_citation)
                         # Check if the same citation is in the reading list
                         if slr_citation in self.citation_list:
                             return (f'Duplicate of {slr_citation}')
@@ -221,6 +220,9 @@ class LawnetBrowser():
         elif 'A.C.' in case_citation:
             case_citation = case_citation.replace('A.C.', 'AC')
             resource_name = case_citation
+        elif 'Ch.' in case_citation:
+            case_citation = case_citation.replace('Ch.', 'Ch')
+            resource_name = case_citation
         else:
             resource_name = case_citation
 
@@ -256,7 +258,7 @@ class LawnetBrowser():
     def get_case_index(self, case_list, citation):
         case_index = None
         for index, case in enumerate(case_list):
-            if citation.replace('Ch ', 'Ch. ').lower() in case[1].lower():
+            if citation.lower() in case[1].lower():
                 case_index = index
                 break
 
