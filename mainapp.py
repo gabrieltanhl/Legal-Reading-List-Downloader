@@ -40,6 +40,7 @@ class ProgressBar(QtCore.QThread):
 
         elif login_status == 'SUCCESS':
             self.download_status.emit('Login success!')
+            telemetry.log_new_session(self.downloader.username, len(self.citation_list))
             '''
             Code below launches a thread for every case download.
             Max # worker threads is 10. Each worker thread pulls a task
@@ -48,7 +49,6 @@ class ProgressBar(QtCore.QThread):
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
 
-            telemetry.log_new_session(self.downloader.username, len(self.citation_list))
 
             def threader():
                 while True:
