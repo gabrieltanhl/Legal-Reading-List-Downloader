@@ -1,34 +1,17 @@
-import requests
-import json
-from hashlib import sha256
-import time
-
-BASE_URL='https://legallist-pgdb-prod.herokuapp.com/app/'
-
-def authenticate_user(username):
-    hashed_username = (sha256(str.encode(username))).hexdigest()
-    auth_response = requests.get(
-        BASE_URL + 'check/' + hashed_username)
-    auth_status = json.loads(auth_response.content)
-    print(f'Authentication: {auth_status}')
-    return auth_status
+from applicationinsights import TelemetryClient
 
 
-def log_anon_usage(username, login_prefix, num_cases):
-    url = BASE_URL + 'log'
-    if login_prefix == "smustu":
-        year = username.split('.')[-1]
+telemetry_client = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
 
-    elif login_prefix == "smustf":
-        year = ""
+def log_case_not_found(case_citation):
+    telemetry_client.track_event('Case Not Found', {'Citation': case_citation})
+    telemetry_client.flush()
 
-    payload = {
-        "username_hash": sha256(str.encode(username)).hexdigest(),
-        "usertype": login_prefix,
-        "year": year,
-        "timestamp": int(time.time()),
-        "downloads": num_cases
-    }
 
-    r = requests.post(url, data=json.dumps(payload))
-    print('Data logged')
+def log_successful_download(case_citation):
+    telemetry_client.track_event('PDF Downloaded', {'Citation': case_citation})
+    telemetry_client.flush()
+
+def log_new_session(username, search_count):
+    telemetry_client.track_event('Session Opened', {'User': username, 'Search Count': search_count})
+    telemetry_client.flush()

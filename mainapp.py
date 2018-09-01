@@ -10,10 +10,9 @@ import pathlib
 import datetime
 import requests
 from distutils.version import StrictVersion
-from applicationinsights import TelemetryClient
+import telemetry
 
 VERSION = '1.0.2'
-Telemetry = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
 
 
 class ProgressBar(QtCore.QThread):
@@ -49,8 +48,7 @@ class ProgressBar(QtCore.QThread):
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
 
-            Telemetry.track_event('Session Opened', {'User': self.downloader.username}, {'Search Count': len(self.citation_list)})
-            Telemetry.flush()
+            telemetry.log_new_session(self.downloader.username, len(self.citation_list))
 
             def threader():
                 while True:
@@ -396,8 +394,12 @@ class App(QtWidgets.QWidget):
             self.status_label.setText('Downloading in progress...')
 
             if current_case:
-                if 'downloaded' in download_status:
+                if 'unable to find' in download_status:
+                    telemetry.log_case_not_found(current_case)
+                elif 'downloaded' in download_status:
                     self.successful_downloads += 1
+                    telemetry.log_successful_download(current_case)
+
                 num_rows = self.tableWidget.rowCount()
                 for row in range(num_rows):
                     table_item = self.tableWidget.item(row, 0)
