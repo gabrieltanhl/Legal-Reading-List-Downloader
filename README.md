@@ -7,7 +7,7 @@ Only SMU LawNet accounts are supported (as of now).
 
 Start screen             |  Downloading cases
 :-------------------------:|:-------------------------:
-![](https://user-images.githubusercontent.com/24975800/43300130-0d21778a-9190-11e8-98b9-fd8c3b4e78eb.png "Start page of app")  |  ![](https://user-images.githubusercontent.com/24975800/43300132-0f44b9be-9190-11e8-9a05-b8ce778f28e3.png "Downloading cases")
+![](https://i.imgur.com/f06VQKb.png "Start page of app")  |  ![](https://i.imgur.com/fDYfId7.png "Downloading cases")
 
 Built by the law students from SMU: [Gabriel Tan](https://github.com/gabrieltanhl), [Ng Jun Xuan](https://github.com/njunxuan), [Wan Ding Yao](https://github.com/DingYao)
 
