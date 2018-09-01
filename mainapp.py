@@ -10,9 +10,10 @@ import pathlib
 import datetime
 import requests
 from distutils.version import StrictVersion
+from applicationinsights import TelemetryClient
 
-
-VERSION = '1.0.1'
+VERSION = '1.0.2'
+Telemetry = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
 
 
 class ProgressBar(QtCore.QThread):
@@ -47,6 +48,9 @@ class ProgressBar(QtCore.QThread):
             '''
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
+
+            Telemetry.track_event('Session Opened', {'User': self.downloader.username}, {'Search Count': len(self.citation_list)})
+            Telemetry.flush()
 
             def threader():
                 while True:

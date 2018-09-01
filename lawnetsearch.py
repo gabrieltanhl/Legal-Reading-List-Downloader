@@ -6,9 +6,11 @@ from collections import namedtuple
 import requests
 import itertools
 import string
+from applicationinsights import TelemetryClient
 
-
+Telemetry = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
 SearchResult = namedtuple('SearchResult', ['case_url', 'case_name'])
+
 class LawnetBrowser():
     SMU_LAWNET_PROXY_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
     LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
@@ -148,7 +150,9 @@ class LawnetBrowser():
                              for case in cases_found]
 
             if len(search_results) == 0:
-                return ('Unable to find ' + case_citation + '.')
+                Telemetry.track_event('Case Not Found', {'Citation': case_citation})
+                Telemetry.flush()
+                return ('\nUnable to find ' + case_citation + '.')
 
             # if neutral citation - test first result for PDF
             if not any(map(lambda abbrev: abbrev in case_citation, self.PDF_REPORTS)):
@@ -177,11 +181,15 @@ class LawnetBrowser():
                     else:
                         return self.download_pdf_for_case(s, case_text, search_results[0].case_name)
                 else:
-                    return ('Unable to find ' + case_citation + '.')
+                    Telemetry.track_event('Case Not Found', {'Citation': case_citation})
+                    Telemetry.flush()
+                    return ('\nUnable to find ' + case_citation + '.')
             else:
                 case_index = self.get_case_index(search_results, case_citation)
                 if case_index is None:
-                    return ('Unable to find ' + case_citation + '.')
+                    Telemetry.track_event('Case Not Found', {'Citation': case_citation})
+                    Telemetry.flush()
+                    return ('\nUnable to find ' + case_citation + '.')
 
                 doc_id = re.search(r"'(.*)'",
                                    search_results[case_index].case_url).group(1)
@@ -269,6 +277,8 @@ class LawnetBrowser():
         case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.pdf')
         with open(case_path, 'wb') as case_file:
             case_file.write(case_data)
+        Telemetry.track_event('PDF Downloaded', {'Citation': case_citation})
+        Telemetry.flush()
 
         return f'PDF downloaded.'
 
@@ -276,6 +286,8 @@ class LawnetBrowser():
         case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.html')
         with open(case_path, 'w', encoding='utf-8') as case_file:
             case_file.write(case_data)
+        Telemetry.track_event('HTML Downloaded', {'Citation': case_citation})
+        Telemetry.flush()
 
         return (
             f'PDF not available. HTML version downloaded.'
