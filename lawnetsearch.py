@@ -144,16 +144,16 @@ class LawnetBrowser():
             # without javascript, there is a function call with a
             # "resource id" captured within the "onclick" action
             # of the link
-            cases_onclick = [SearchResult(case['onclick'], (case.text).strip())
+            search_results = [SearchResult(case['onclick'], (case.text).strip())
                              for case in cases_found]
 
-            if len(cases_onclick) == 0:
-                return ('\nUnable to find ' + case_citation + '.')
+            if len(search_results) == 0:
+                return ('Unable to find ' + case_citation + '.')
 
             # if neutral citation - test first result for PDF
             if not any(map(lambda abbrev: abbrev in case_citation, self.PDF_REPORTS)):
                 # Get link of first case
-                case_id = re.search(r"'(.*)'", cases_onclick[0].case_url).group(1)
+                case_id = re.search(r"'(.*)'", search_results[0].case_url).group(1)
                 case_url = self.LAWNET_CASE_URL + case_id
 
                 case_response = s.get(case_url)
@@ -171,29 +171,25 @@ class LawnetBrowser():
                 citations_found = list(itertools.chain.from_iterable(citations_found))
                 if case_citation in citations_found:
                     slr_citation = citations_found[0]
-                    if 'SLR' in slr_citation:
-                        # Check if the same citation is in the reading list
-                        if slr_citation in self.citation_list:
-                            return (f'Duplicate of {slr_citation}')
-                        else:
-                            return self.download_pdf_for_case(s, slr_citation, case_text, cases_onclick[0].case_name)
+                    if 'SLR' in slr_citation and slr_citation in self.citation_list:
+                        # Do not download if it is a duplicate
+                        return (f'Duplicate of {slr_citation}')
                     else:
-                        # No SLR version - get HTML version
-                        return self.download_pdf_for_case(s, case_citation, case_text, cases_onclick[0].case_name)
+                        return self.download_pdf_for_case(s, case_text, search_results[0].case_name)
                 else:
-                    return ('\nUnable to find ' + case_citation + '.')
+                    return ('Unable to find ' + case_citation + '.')
             else:
-                case_index = self.get_case_index(cases_onclick, case_citation)
+                case_index = self.get_case_index(search_results, case_citation)
                 if case_index is None:
-                    return ('\nUnable to find ' + case_citation + '.')
+                    return ('Unable to find ' + case_citation + '.')
 
                 doc_id = re.search(r"'(.*)'",
-                                   cases_onclick[case_index].case_url).group(1)
+                                   search_results[case_index].case_url).group(1)
                 doc_id = doc_id.split('.')[0]
 
                 pdf_url = self.generate_pdf_url(case_citation, doc_id)
                 pdf_response = s.get(pdf_url)
-                return self.save_pdf(case_citation, pdf_response.content, cases_onclick[case_index].case_name)
+                return self.save_pdf(pdf_response.content, search_results[case_index].case_name)
 
     def generate_pdf_url(self, case_citation, doc_id):
         def pad_four_digit(case_citation):
@@ -229,17 +225,17 @@ class LawnetBrowser():
         pdf_url = f'{pdf_base_url}&pdfFileName={case_citation}.pdf&pdfFileUri={doc_id}/resource/{resource_name}.pdf'
         return pdf_url
 
-    def download_pdf_for_case(self, session, case_citation, case_page, filename):
+    def download_pdf_for_case(self, session, case_page, filename):
         pdf_url = self.get_pdf_link(case_page)
 
         if pdf_url:
             pdf_file = session.get(pdf_url)
-            return self.save_pdf(case_citation, pdf_file.content, filename)
+            return self.save_pdf(pdf_file.content, filename)
         else:
             try:
-                return self.save_html2pdf(case_citation, case_page, filename)
+                return self.save_html2pdf(case_page, filename)
             except Exception:
-                return self.save_html(case_citation, case_page, filename)
+                return self.save_html(case_page, filename)
 
     def get_pdf_link(self, case_page):
         case_soup = BeautifulSoup(case_page, 'lxml')
@@ -261,7 +257,6 @@ class LawnetBrowser():
             if citation.lower() in case[1].lower():
                 case_index = index
                 break
-
         return case_index
 
     def clean_filename(self, filename):
@@ -270,23 +265,23 @@ class LawnetBrowser():
 
         return clean_name
 
-    def save_pdf(self, case_citation, case_data, filename):
+    def save_pdf(self, case_data, filename):
         case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.pdf')
         with open(case_path, 'wb') as case_file:
             case_file.write(case_data)
 
-        return f'\nPDF downloaded.'
+        return f'PDF downloaded.'
 
-    def save_html(self, case_citation, case_data, filename):
+    def save_html(self, case_data, filename):
         case_path = os.path.join(self.download_dir, self.clean_filename(filename) + '.html')
         with open(case_path, 'w', encoding='utf-8') as case_file:
             case_file.write(case_data)
 
         return (
-            f'\nPDF not available. HTML version downloaded.'
+            f'PDF not available. HTML version downloaded.'
         )
 
-    def save_html2pdf(self, case_citation, case_data, filename):
+    def save_html2pdf(self, case_data, filename):
         def cleanup_html(source_html):
             divider = "<div class=\"navi-container\"> </div>"
             new_html = source_html.split(divider)[1]
@@ -297,4 +292,4 @@ class LawnetBrowser():
         new_html = cleanup_html(case_data)
         pisa.CreatePDF(new_html, dest=resultFile)
         resultFile.close()
-        return f'\nPDF downloaded.'
+        return f'PDF downloaded.'
