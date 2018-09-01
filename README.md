@@ -3,7 +3,7 @@ A desktop app that automatically downloads cases in your reading lists from LawN
 
 The Singapore Academy of Law has approved the use of the LRLD by students and faculty members of Singapore Management University (SMU). 
 
-Only SMU LawNet accounts are supported (as of now).
+Only SMU LawNet accounts and MacOS are supported (as of now).
 
 Start screen             |  Downloading cases
 :-------------------------:|:-------------------------:
