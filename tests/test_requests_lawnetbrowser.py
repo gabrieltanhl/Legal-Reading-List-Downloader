@@ -41,22 +41,22 @@ class TestRequestsBrowser:
 
     @pytest.mark.vcr()
     @pytest.mark.parametrize(
-        'test_citation, expected_ext, expected_sha_file',
+        'test_title, test_citation, expected_ext, expected_sha_file',
         [
-            ('[2016] 3 SLR 621', 'pdf', '[2016] 3 SLR 621.sha'),
-            ('[1980] 1 Ch 576', 'pdf', '[1980] 1 Ch 576.sha'),
+            ('Living the Link Pte Ltd (in creditors voluntary liquidation) and others v Tan Lay Tin Tina and others', '[2016] 3 SLR 621', 'pdf', '[2016] 3 SLR 621.sha'),
+            ('Stonegate Securities Ltd. V. Gregory [1979 S. No. 053]', '[1980] 1 Ch. 576', 'pdf', '[1980] 1 Ch 576.sha'),
             # ('[1989] 3 MLJ 385', 'html', '[1989] 3 MLJ 385.sha'),
-            ('[1992] 2 WLR 367', 'pdf', '[1992] 2 WLR 367.sha')
+            ('In Re Atlantic Computer Systems Plc.', '[1992] 2 WLR 367', 'pdf', '[1992] 2 WLR 367.sha')
         ])
-    def test_case_download(self, test_citation, expected_ext,
+    def test_case_download(self, test_title, test_citation, expected_ext,
                            expected_sha_file):
         search_lock = threading.Lock()
         self.browser.download_case(test_citation, search_lock)
-        downloaded_case_name = test_citation + '.' + expected_ext
+        downloaded_case_name = f'{test_title} - {test_citation}.{expected_ext}'
         downloaded_case_path = os.path.join(DOWNLOAD_DIR, downloaded_case_name)
         sha_file_path = os.path.join(SHA_DIR, expected_sha_file)
         # assert file downloaded with correct extension
-        assert (test_citation + '.' + expected_ext) in os.listdir(DOWNLOAD_DIR)
+        assert downloaded_case_name in os.listdir(DOWNLOAD_DIR)
 
         # assert file is correct
         assert generate_sha_hash_helper(
