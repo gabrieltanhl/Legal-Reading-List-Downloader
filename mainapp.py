@@ -11,7 +11,6 @@ import datetime
 from applicationinsights import TelemetryClient
 
 VERSION = '1.0.2'
-
 Telemetry = TelemetryClient('0d21236a-e9fc-447d-910b-359ceda2fac5')
 
 class ProgressBar(QtCore.QThread):
