@@ -1,16 +1,17 @@
 import sys
-from PySide2 import QtCore, QtWidgets, QtGui
-from PySide2.QtCore import Slot, QSettings
-import parsedocs
 import subprocess
-import lawnetsearch
 import threading
-from queue import Queue
 import pathlib
 import datetime
 import requests
-from distutils.version import StrictVersion
 import telemetry
+from PySide2 import QtCore, QtWidgets, QtGui
+from PySide2.QtCore import Slot, QSettings
+from distutils.version import StrictVersion
+from multiprocessing.dummy import Pool as ThreadPool
+
+import lawnetsearch
+import parsedocs
 
 VERSION = '1.0.2'
 
@@ -41,40 +42,20 @@ class ProgressBar(QtCore.QThread):
         elif login_status == 'SUCCESS':
             self.download_status.emit('Login success!')
             telemetry.log_new_session(self.downloader.username, len(self.citation_list))
-            '''
-            Code below launches a thread for every case download.
-            Max # worker threads is 10. Each worker thread pulls a task
-            from the queue and executes it.
-            '''
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
 
+            def run_download(case):
+                signal = self.downloader.download_case(
+                    case, search_lock)
+                self.progress_counter += self.progress_per_case
+                signal_lock.acquire()
+                self.download_status.emit(case + "{" + signal)
+                signal_lock.release()
+                self.progress_update.emit(int(self.progress_counter))
 
-            def threader():
-                while True:
-                    case = q.get()
-                    signal = self.downloader.download_case(
-                        case, search_lock)
-                    self.progress_counter += self.progress_per_case
-                    signal_lock.acquire()
-                    self.download_status.emit(case + "{" + signal)
-                    signal_lock.release()
-                    self.progress_update.emit(int(self.progress_counter))
-                    q.task_done()
-
-            q = Queue()
-            for x in range(10):  # spawn up to 10 threads
-                t = threading.Thread(target=threader)
-                t.daemon = True
-                t.start()
-
-            for case in self.citation_list:  # putting cases into job pool
-                q.put(case)
-
-            q.join()
-            '''
-            End of multi-threading code
-            '''
+            with ThreadPool(10) as pool:
+                pool.map(run_download, self.citation_list)
 
             self.finish_job(self.downloader)
 
