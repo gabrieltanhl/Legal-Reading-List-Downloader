@@ -138,6 +138,9 @@ class App(QtWidgets.QWidget):
         self.passwordbox.setPlaceholderText(' Password')
         self.passwordbox.textChanged.connect(self.disableButton)
 
+        self.institution = QtWidgets.QComboBox()
+        self.institution.addItems(['SMU', 'NUS'])
+
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['Student', 'Faculty'])
         if (self.settings.value('login_usertype')):
@@ -163,6 +166,7 @@ class App(QtWidgets.QWidget):
         self.left_layout = QtWidgets.QVBoxLayout()
         self.left_layout.addWidget(self.usernamebox)
         self.left_layout.addWidget(self.passwordbox)
+        self.left_layout.addWidget(self.institution)
         self.left_layout.addWidget(self.lawnet_type)
         self.left_layout.addWidget(self.stared_checkbox)
         self.left_layout.addStretch()
