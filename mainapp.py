@@ -317,19 +317,18 @@ class App(QtWidgets.QWidget):
         if self.download_num() <= 150:
             if len(self.citation_list) > 0:
                 self.successful_downloads = 0
-                usertype = 'smustf' if self.lawnet_type.currentIndex(
-                ) == 1 else 'smustu'
+                usertype = 'smustf' if self.lawnet_type.currentIndex() == 1 else 'smustu'
                 self.downloader.update_download_info(self.usernamebox.text(),
                                                      self.passwordbox.text(),
                                                      usertype,
                                                      self.citation_list,
                                                      self.download_directory)
-                self.calc = ProgressBar(self.downloader)
+                self.download_runner = ProgressBar(self.downloader)
 
-                self.calc.start()
+                self.download_runner.start()
                 # connecting signal emitters to UI
-                self.calc.progress_update.connect(self.update_progress_bar)
-                self.calc.download_status.connect(self.update_download_status)
+                self.download_runner.progress_update.connect(self.update_progress_bar)
+                self.download_runner.download_status.connect(self.update_download_status)
 
                 self.start_button.setDisabled(True)
                 self.progress.show()
