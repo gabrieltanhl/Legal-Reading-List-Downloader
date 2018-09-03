@@ -4,7 +4,6 @@ import threading
 import pathlib
 import datetime
 import requests
-import telemetry
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Slot, QSettings
 from distutils.version import StrictVersion
@@ -41,7 +40,6 @@ class ProgressBar(QtCore.QThread):
 
         elif login_status == 'SUCCESS':
             self.download_status.emit('Login success!')
-            telemetry.log_new_session(self.downloader.username, len(self.citation_list))
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
 
@@ -378,11 +376,8 @@ class App(QtWidgets.QWidget):
             self.status_label.setText('Downloading in progress...')
 
             if current_case:
-                if 'unable to find' in download_status:
-                    telemetry.log_case_not_found(current_case)
-                elif 'downloaded' in download_status:
+                if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                    telemetry.log_successful_download(current_case)
 
                 num_rows = self.tableWidget.rowCount()
                 for row in range(num_rows):
