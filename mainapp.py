@@ -164,7 +164,7 @@ class App(QtWidgets.QWidget):
         self.left_layout = QtWidgets.QVBoxLayout()
         self.left_layout.addWidget(self.usernamebox)
         self.left_layout.addWidget(self.passwordbox)
-        self.left_layout.addWidget(self.institution)
+        # self.left_layout.addWidget(self.institution)
         self.left_layout.addWidget(self.lawnet_type)
         self.left_layout.addWidget(self.stared_checkbox)
         self.left_layout.addStretch()
