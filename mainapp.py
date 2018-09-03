@@ -12,7 +12,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 import lawnetsearch
 import parsedocs
 
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 
 
 class ProgressBar(QtCore.QThread):
