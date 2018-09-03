@@ -1,18 +1,18 @@
 import sys
-from PySide2 import QtCore, QtWidgets, QtGui
-from PySide2.QtCore import Slot, QSettings
-import parsedocs
 import subprocess
-import lawnetsearch
 import threading
-from queue import Queue
 import pathlib
 import datetime
 import requests
+from PySide2 import QtCore, QtWidgets, QtGui
+from PySide2.QtCore import Slot, QSettings
 from distutils.version import StrictVersion
-import telemetry
+from multiprocessing.dummy import Pool as ThreadPool
 
-VERSION = '1.0.2'
+import lawnetsearch
+import parsedocs
+
+VERSION = '1.0.3'
 
 
 class ProgressBar(QtCore.QThread):
@@ -40,41 +40,20 @@ class ProgressBar(QtCore.QThread):
 
         elif login_status == 'SUCCESS':
             self.download_status.emit('Login success!')
-            telemetry.log_new_session(self.downloader.username, len(self.citation_list))
-            '''
-            Code below launches a thread for every case download.
-            Max # worker threads is 10. Each worker thread pulls a task
-            from the queue and executes it.
-            '''
             search_lock = threading.Lock()
             signal_lock = threading.Lock()
 
+            def run_download(case):
+                signal = self.downloader.download_case(
+                    case, search_lock)
+                self.progress_counter += self.progress_per_case
+                signal_lock.acquire()
+                self.download_status.emit(case + "{" + signal)
+                signal_lock.release()
+                self.progress_update.emit(int(self.progress_counter))
 
-            def threader():
-                while True:
-                    case = q.get()
-                    signal = self.downloader.download_case(
-                        case, search_lock)
-                    self.progress_counter += self.progress_per_case
-                    signal_lock.acquire()
-                    self.download_status.emit(case + "{" + signal)
-                    signal_lock.release()
-                    self.progress_update.emit(int(self.progress_counter))
-                    q.task_done()
-
-            q = Queue()
-            for x in range(10):  # spawn up to 10 threads
-                t = threading.Thread(target=threader)
-                t.daemon = True
-                t.start()
-
-            for case in self.citation_list:  # putting cases into job pool
-                q.put(case)
-
-            q.join()
-            '''
-            End of multi-threading code
-            '''
+            with ThreadPool(10) as pool:
+                pool.map(run_download, self.citation_list)
 
             self.finish_job(self.downloader)
 
@@ -157,6 +136,9 @@ class App(QtWidgets.QWidget):
         self.passwordbox.setPlaceholderText(' Password')
         self.passwordbox.textChanged.connect(self.disableButton)
 
+        self.institution = QtWidgets.QComboBox()
+        self.institution.addItems(['SMU', 'NUS'])
+
         self.lawnet_type = QtWidgets.QComboBox()
         self.lawnet_type.addItems(['Student', 'Faculty'])
         if (self.settings.value('login_usertype')):
@@ -182,6 +164,7 @@ class App(QtWidgets.QWidget):
         self.left_layout = QtWidgets.QVBoxLayout()
         self.left_layout.addWidget(self.usernamebox)
         self.left_layout.addWidget(self.passwordbox)
+        # self.left_layout.addWidget(self.institution)
         self.left_layout.addWidget(self.lawnet_type)
         self.left_layout.addWidget(self.stared_checkbox)
         self.left_layout.addStretch()
@@ -336,19 +319,18 @@ class App(QtWidgets.QWidget):
         if self.download_num() <= 150:
             if len(self.citation_list) > 0:
                 self.successful_downloads = 0
-                usertype = 'smustf' if self.lawnet_type.currentIndex(
-                ) == 1 else 'smustu'
+                usertype = 'smustf' if self.lawnet_type.currentIndex() == 1 else 'smustu'
                 self.downloader.update_download_info(self.usernamebox.text(),
                                                      self.passwordbox.text(),
                                                      usertype,
                                                      self.citation_list,
                                                      self.download_directory)
-                self.calc = ProgressBar(self.downloader)
+                self.download_runner = ProgressBar(self.downloader)
 
-                self.calc.start()
+                self.download_runner.start()
                 # connecting signal emitters to UI
-                self.calc.progress_update.connect(self.update_progress_bar)
-                self.calc.download_status.connect(self.update_download_status)
+                self.download_runner.progress_update.connect(self.update_progress_bar)
+                self.download_runner.download_status.connect(self.update_download_status)
 
                 self.start_button.setDisabled(True)
                 self.progress.show()
@@ -394,11 +376,8 @@ class App(QtWidgets.QWidget):
             self.status_label.setText('Downloading in progress...')
 
             if current_case:
-                if 'unable to find' in download_status:
-                    telemetry.log_case_not_found(current_case)
-                elif 'downloaded' in download_status:
+                if 'downloaded' in download_status:
                     self.successful_downloads += 1
-                    telemetry.log_successful_download(current_case)
 
                 num_rows = self.tableWidget.rowCount()
                 for row in range(num_rows):

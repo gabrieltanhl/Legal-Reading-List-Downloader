@@ -9,11 +9,14 @@ import string
 
 SearchResult = namedtuple('SearchResult', ['case_url', 'case_name'])
 
+
 class LawnetBrowser():
     SMU_LAWNET_PROXY_URL = 'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
+    SMU_LOGIN_URL = 'https://login.smu.edu.sg/adfs/ls'
     LAWNET_SEARCH_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search'
     LAWNET_CASE_URL = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/page-content?p_p_id=legalresearchpagecontent_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchpagecontent_WAR_lawnet3legalresearchportlet_action=openContentPage&contentDocID='
     SEARCH_FORM_ACTION = 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/result-page?p_p_id=legalresearchresultpage_WAR_lawnet3legalresearchportlet&p_p_lifecycle=1&p_p_state=normal&p_p_mode=view&p_p_col_id=column-2&p_p_col_count=1&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_action=basicSeachActionURL&_legalresearchresultpage_WAR_lawnet3legalresearchportlet_searchType=0'
+
     PDF_REPORTS = [
         'SLR',
         'Ch',
@@ -61,7 +64,7 @@ class LawnetBrowser():
             initiate_auth = s.get(
                 'https://login.libproxy.smu.edu.sg/login?auth=shibboleth&url=https://www.lawnet.sg/lawnet/web/lawnet/ip-access'
             )
-            if initiate_auth.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+            if initiate_auth.url == self.LAWNET_SEARCH_URL:
                 return 'SUCCESS'
             soup = BeautifulSoup(initiate_auth.text, 'lxml')
             try:
@@ -80,9 +83,8 @@ class LawnetBrowser():
                 print('Could not find necessary SAML tokens')
                 return 'FAIL'
             # Otherwise access the SMU login page
-            auth_response = s.post(
-                'https://login.smu.edu.sg/adfs/ls/', data=saml_payload)
-            if auth_response.url != 'https://login.smu.edu.sg/adfs/ls/':
+            auth_response = s.post(self.SMU_LOGIN_URL, data=saml_payload)
+            if auth_response.url != self.SMU_LOGIN_URL:
                 return 'FAIL'
             login_payload = {
                 'UserName': f'{self.login_prefix}\\{self.username}',
@@ -90,8 +92,7 @@ class LawnetBrowser():
                 'AuthMethod': 'FormsAuthentication'
             }
             # Login to SMU SSO
-            login_response = s.post(
-                'https://login.smu.edu.sg/adfs/ls', data=login_payload)
+            login_response = s.post(self.SMU_LOGIN_URL, data=login_payload)
             soup = BeautifulSoup(login_response.text, 'lxml')
             # Obtain SAML Response keys
             try:
@@ -112,10 +113,8 @@ class LawnetBrowser():
                 'https://login.libproxy.smu.edu.sg/Shibboleth.sso/SAML2/POST',
                 data=auth_payload)
             # Check login
-            test_response = s.get(
-                'https://login.libproxy.smu.edu.sg/login?qurl=https%3a%2f%2fwww.lawnet.sg%2flawnet%2fweb%2flawnet%2fip-access'
-            )
-            if test_response.url == 'https://www-lawnet-sg.libproxy.smu.edu.sg/lawnet/group/lawnet/legal-research/basic-search':
+            test_response = s.get(self.SMU_LAWNET_PROXY_URL)
+            if test_response.url == self.LAWNET_SEARCH_URL:
                 self.cookies = s.cookies
                 return 'SUCCESS'
             else:
@@ -210,7 +209,11 @@ class LawnetBrowser():
                 resource_name = ' '.join(resource_name)
         elif 'WLR' in case_citation and any(map(lambda year: str(year) in case_citation, range(2008, 2021))):
             resource_name = case_citation.replace(' ', '-').replace('[', '').replace(']', '')
-        elif 'AC' in case_citation:
+        elif 'AC' in case_citation and any(map(lambda year: str(year) in case_citation, range(1800, 2008))):
+            case_citation = case_citation.replace(' ', '-')
+            resource_name = case_citation
+        elif 'QB' in case_citation and not ' 1 QB' in case_citation:
+            case_citation = case_citation.replace(' QB', ' 1 QB')
             case_citation = case_citation.replace(' ', '-')
             resource_name = case_citation
         elif 'A.C.' in case_citation:
