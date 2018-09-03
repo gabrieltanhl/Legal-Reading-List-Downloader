@@ -209,7 +209,11 @@ class LawnetBrowser():
                 resource_name = ' '.join(resource_name)
         elif 'WLR' in case_citation and any(map(lambda year: str(year) in case_citation, range(2008, 2021))):
             resource_name = case_citation.replace(' ', '-').replace('[', '').replace(']', '')
-        elif 'AC' in case_citation:
+        elif 'AC' in case_citation and any(map(lambda year: str(year) in case_citation, range(1800, 2008))):
+            case_citation = case_citation.replace(' ', '-')
+            resource_name = case_citation
+        elif 'QB' in case_citation and not ' 1 QB' in case_citation:
+            case_citation = case_citation.replace(' QB', ' 1 QB')
             case_citation = case_citation.replace(' ', '-')
             resource_name = case_citation
         elif 'A.C.' in case_citation:
