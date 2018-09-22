@@ -1,9 +1,9 @@
-# LawNet Reading List Downloader - LRLD
+# LawNet Reading List Downloader - LRLD (macOS version)
 A desktop app that automatically downloads cases in your reading lists from LawNet. **The latest release can be found [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).**
 
 Use of the LRLD shall be subject to approval as may be required by the universities' administrators.
 
-Only SMU LawNet accounts and MacOS are supported (as of now).
+Presently, only Singapore Management University (SMU) accounts are supported. In the future, support may be extended to National University of Singapore (NUS) accounts.
 
 Start screen             |  Downloading cases
 :-------------------------:|:-------------------------:
