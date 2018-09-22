@@ -1,5 +1,5 @@
 # LawNet Reading List Downloader - LRLD (macOS version)
-A desktop app that automatically downloads cases in your reading lists from LawNet. **The latest release can be found [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).** For the Windows version, please proceed to the [Microsoft Store](https://www.microsoft.com/en-sg/p/lawnet-reading-list-downloader-lrld/9php586tphgz).
+A macOS application that automatically downloads cases in your reading lists from LawNet. **The latest release can be found [here](https://github.com/gabrieltanhl/Legal-Reading-List-Downloader/releases).** For the Windows version, please proceed to the [Microsoft Store](https://www.microsoft.com/en-sg/p/lawnet-reading-list-downloader-lrld/9php586tphgz).
 
 Use of the LRLD shall be subject to approval as may be required by the universities' administrators.
 
