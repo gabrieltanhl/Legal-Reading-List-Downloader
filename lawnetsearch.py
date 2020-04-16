@@ -122,12 +122,18 @@ class LawnetBrowser():
 
     def download_case(self, case_citation, lock=None):
         print('Downloading case', case_citation)
-        categories = ['1', '2', '4', '5', '6', '7', '8', '27']
+        categories = ['1', '2', '4', '6', '7', '8', '27']
         case_citation = case_citation.replace('Ch ', 'Ch. ')
 
         with requests.Session() as s:
             s.cookies = self.cookies
+            searchurl_response = s.get(self.LAWNET_SEARCH_URL)
+            searchurl_soup = BeautifulSoup(searchurl_response.text, 'lxml')
+            formDate = searchurl_soup.find('input', {
+                'name': '_searchbasicformportlet_WAR_lawnet3legalresearchportlet_formDate'
+            }).get('value')
             search_payload = {
+                '_searchbasicformportlet_WAR_lawnet3legalresearchportlet_formDate': formDate,
                 'grouping': '1',
                 'category': categories,
                 'basicSearchKey': case_citation
